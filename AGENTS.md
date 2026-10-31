@@ -377,22 +377,24 @@ Zod schemas stay hand-written for form input, each carrying a type-level
 
 Adding an endpoint means: a PR in `Quizzivy/sdk` that edits `openapi.yaml`,
 with the `Quizzivy/api` PR that implements it open and green on that contract;
-after the sdk merge, api and web pin the version it published (`make sdk
-VERSION=…` in each), regenerate and commit. The READMEs of sdk, api and web
-describe each step.
+after the sdk merge, api pins the version it published in `api/sdk-version`
+and runs `make gen`, and web runs `make sdk VERSION=…`; each commits the
+result. The READMEs of sdk, api and web describe each step.
 
 ## Local development
 
-In `Quizzivy/api` for the database, the API and the worker, and in
-`Quizzivy/web` for the app (`make dev-web` there, against the API on :8080).
+In `Quizzivy/api` for the database, the API and the worker:
 
 ```
 docker compose up -d     postgres:18 + minio
 make migrate             goose up, as quizzivy_migrate
 make seed
-make gen                 regenerate from api/openapi.yaml
-make dev                 web on :5173, api on :8080
+make gen                 regenerate from the pinned contract (api/sdk-version)
+make dev                 api on :8080, plus the worker when imports are configured
 ```
+
+and in `Quizzivy/web` for the app: `make dev-web`, on :5173 against the API on
+:8080.
 
 Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
@@ -504,8 +506,8 @@ web's. What to keep in mind while working:
 - **A job is skipped only when the same files passed it and have not failed
   it since.** `scripts/ci/plan.mjs` names the set of files each job reads and
   hashes it; a job records its outcome for that hash, and Plan skips the job
-  while the newest record is a pass. So a change under `docs/plan/` normally
-  runs no code job, and a server-only change no web job.
+  while the newest record is a pass. So a change to a README normally runs no
+  code job.
 - **Each job checks out only its set.** A test that reads a file outside its
   own tree (the web join-code test reads `joincode.go`; the isolation suite
   reads an mp3 under `web/tests/e2e/fixtures/`) needs that path in the set's

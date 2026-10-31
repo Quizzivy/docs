@@ -296,6 +296,9 @@ class Builder:
                 path = f"{rel}/{f}" if rel else f
                 if any(path.startswith(p) for p in SKIP_PREFIXES) or not f.endswith(".md"):
                     continue
+                if os.path.islink(os.path.join(root, f)):
+                    self.notes.append(("warning", f"{repo}: {path} is a symbolic link; not published"))
+                    continue
                 if (path.startswith("docs/") or (f == "README.md" and (rel or repo != self.home))
                         or path in ("AGENTS.md", "CONTRIBUTING.md")):
                     found.append(path)
@@ -306,6 +309,9 @@ class Builder:
         for repo, src, name, side, group, mode in DOCS:
             if repo not in self.sources or not os.path.exists(self.path(repo, src)):
                 self.notes.append(("warning", f"{repo}: {src} is in scripts/wiki/build.py but not in the checkout"))
+                continue
+            if os.path.islink(self.path(repo, src)):
+                self.notes.append(("warning", f"{repo}: {src} is a symbolic link; not published"))
                 continue
             known.add((repo, src))
             self.docs.append(Doc(repo, src, name, side, group, mode))
@@ -323,10 +329,9 @@ class Builder:
         if dup:
             raise BuildError(f"page names collide: {sorted(dup)}")
         self.docmap = {d.key: d for d in self.docs}
-        counts = {}
-        for _, p in self.docmap:
-            counts[posixpath.basename(p)] = counts.get(posixpath.basename(p), 0) + 1
-        self.unique = {posixpath.basename(p): (r, p) for r, p in self.docmap if counts[posixpath.basename(p)] == 1}
+        self.unique = {}
+        for r, p in self.docmap:
+            self.unique.setdefault(posixpath.basename(p), {}).setdefault(r, []).append(p)
 
     def split(self, doc, text):
         lines = text.split("\n")
@@ -416,7 +421,8 @@ class Builder:
         path, _, frag = tgt.partition("#")
         if not path:
             return None
-        base = path.lstrip("/") if path.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(doc.src), unquote(path)))
+        base = posixpath.normpath(unquote(path).lstrip("/") if path.startswith("/")
+                                  else posixpath.join(posixpath.dirname(doc.src), unquote(path)))
         if base.startswith(".."):
             return None
         base = base.rstrip("/")
@@ -427,6 +433,16 @@ class Builder:
                 break
         return self.repo_location(base, frag, doc)
 
+    def by_name(self, name, doc):
+        """by_name finds the page a bare file name means: the first repository in
+        the linking file's order that publishes one file of that name."""
+        found = self.unique.get(name, {})
+        for repo in self.order(doc.repo):
+            paths = found.get(repo, [])
+            if paths:
+                return (repo, paths[0]) if len(paths) == 1 else None
+        return None
+
     def span_target(self, code, doc):
         m = re.fullmatch(r"([\w./\-]+\.md)(#[\w\-]+)?", code.strip())
         if not m:
@@ -436,7 +452,7 @@ class Builder:
             return None
         hit = self.resolve_doc(p, doc)
         if hit is None and "/" not in p:
-            hit = self.unique.get(p)
+            hit = self.by_name(p, doc)
         if hit is None or hit == doc.key:
             return None
         return self.doc_target(hit, frag)

@@ -36,9 +36,11 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
+      # Only the wiki clone below needs the write token.
       - uses: actions/checkout@v7
         with:
           ref: develop
+          persist-credentials: false
       - uses: ./.github/actions/checkout-repos
       - uses: actions/checkout@v7
         with:

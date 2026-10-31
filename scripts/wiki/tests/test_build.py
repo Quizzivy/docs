@@ -95,6 +95,7 @@ class BuildTest(unittest.TestCase):
         self.run_build()
         ci = self.read("Setup-CI")
         self.assertIn("[main](https://github.com/o/api/blob/develop/server/main.go)", ci)
+        self.assertIn("[plan](Plan-00-Overview)", ci)
         self.assertIn("in o/api.", ci)
         self.assertIn("[`docs/setup/ci.md`](Setup-CI)", self.read("Plan-00-Overview"))
 
@@ -116,6 +117,35 @@ class BuildTest(unittest.TestCase):
     def test_a_missing_repository_is_a_warning_not_a_failure(self):
         self.assertEqual(build.main([self.src, self.out, "--owner", "o"]), 0)
         self.assertIn("(https://github.com/o/docs/blob/develop/server/main.go)", self.read("Plan-00-Overview"))
+
+    def test_a_bare_file_name_in_several_repositories_means_the_first_in_order(self):
+        web = os.path.join(self.tmp.name, "web")
+        write(self.api, "docs/setup/deploy.md", "# Deploying the API\n\nSee `ci.md`.\n")
+        write(web, "docs/deploy.md", "# Deploying the web\n\nSee `deploy.md` and `ci.md`.\n")
+        write(web, "docs/ci.md", "# Web CI\n")
+        write(web, "README.md", "# Quizzivy web\n\nCI: `ci.md`.\n")
+        write(self.src, "docs/plan/95-new.md", "# 95\n\nSee `deploy.md`.\n")
+        self.run_build("--with", f"web={web}")
+        self.assertIn("[`deploy.md`](Api-Docs-Setup-Deploy)", self.read("Docs-Plan-95-New"))
+        self.assertIn("[`ci.md`](Setup-CI)", self.read("Api-Docs-Setup-Deploy"))
+        self.assertNotIn("[`deploy.md`]", self.read("Web-Docs-Deploy"))
+        self.assertIn("[`ci.md`](Web-Docs-Ci)", self.read("Web-Docs-Deploy"))
+        self.assertIn("[`ci.md`](Web-Docs-Ci)", self.read("Web-README"))
+
+    def test_a_link_that_climbs_out_of_the_repository_is_refused(self):
+        for target in ("../../../../etc/hostname", "/docs/../../../../etc/hostname"):
+            with self.subTest(target=target):
+                write(self.src, "docs/plan/95-new.md", f"# 95\n\n[out]({target})\n")
+                self.run_build(code=1)
+
+    def test_a_symbolic_link_is_not_published(self):
+        secret = os.path.join(self.tmp.name, "secret.md")
+        write(self.tmp.name, "secret.md", "# Secret\n\ncanary\n")
+        os.makedirs(os.path.join(self.api, "docs"), exist_ok=True)
+        os.symlink(secret, os.path.join(self.api, "docs", "linked.md"))
+        self.run_build()
+        self.assertFalse(Path(self.out, "Api-Docs-Linked.md").exists())
+        self.assertFalse(any("canary" in Path(self.out, f).read_text(encoding="utf-8") for f in os.listdir(self.out)))
 
 
 if __name__ == "__main__":
