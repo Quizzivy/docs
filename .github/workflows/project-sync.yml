@@ -1,0 +1,44 @@
+name: Project sync
+# Mirrors issue labels and pull request task lines onto the org GitHub Project
+# (scripts/ci/project-sync.mjs says how). Issue and pull_request_target events
+# run the workflow from the default branch, so it acts once it is there.
+# pull_request_target is safe here: the job checks out this repository's script
+# only and reads the event payload, never the pull request's code. There is no
+# concurrency group: it would keep one pending run and drop the rest, and each
+# event carries its own change; the writes are idempotent.
+#
+# Another repository of the org syncs too by calling this workflow from the same
+# events, with `uses: Quizzivy/docs/.github/workflows/project-sync.yml@develop`
+# and `secrets: inherit`; PROJECT_TOKEN then has to reach that repository
+# (an org secret does).
+on:
+  issues:
+    types: [opened, edited, reopened, closed, labeled]
+  pull_request_target:
+    types: [opened, edited, reopened, ready_for_review, closed]
+  workflow_call:
+    secrets:
+      PROJECT_TOKEN:
+        required: false
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: Quizzivy/docs
+          ref: develop
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Update the project
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: node scripts/ci/project-sync.mjs
