@@ -26,10 +26,10 @@ python3 scripts/wiki/build.py . /tmp/wiki --strict \
   `Quizzivy/sdk`, which owns the contract (api keeps a synced copy).
 - A link to a published file becomes a link to its wiki page; a link to any
   other file or directory becomes a link to it on GitHub, in the repository
-  that has it. A Markdown file named in backticks becomes a link too; a bare
-  name such as `deploy.md` means the file of that name in the first repository
-  of the same order (api's `docs/setup/deploy.md` from a plan document, web's
-  `docs/deploy.md` from a web document).
+  that has it. A Markdown file named in backticks becomes a link too: first as
+  a path, then as a bare name, which means the file of that name in the first
+  repository of the same order. So deploy.md in a plan document is api's
+  docs/setup/deploy.md, and in a web document web's docs/deploy.md.
 - A symbolic link is never published, and a link that climbs out of its
   repository is left as written, which fails the build.
 - Large documents (the spec, the data model, R4 and D4) are split into several

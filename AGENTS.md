@@ -509,9 +509,10 @@ web's. What to keep in mind while working:
   while the newest record is a pass. So a change to a README normally runs no
   code job.
 - **Each job checks out only its set.** A test that reads a file outside its
-  own tree (the web join-code test reads `joincode.go`; the isolation suite
-  reads an mp3 under `web/tests/e2e/fixtures/`) needs that path in the set's
-  `include`, in the same PR. Never make a test skip when a file is missing.
+  own tree needs that path in the set's `include`, in the same PR. Data the
+  API and the web both check (the join-code format, the audit sentences) comes
+  from `@quizzivy/sdk`, never from the other repository. Never make a test
+  skip when a file is missing.
 - **"Re-run all jobs" runs everything**, and so does a push to `main`. Use the
   first when a skipped job should be run again.
 - **The required check is CI result**, not the individual jobs, and only a
