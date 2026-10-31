@@ -1,90 +1,74 @@
 # Contributing
 
-Read [`AGENTS.md`](AGENTS.md) first. It is the standing rule set and it is short.
+Read [`AGENTS.md`](AGENTS.md) first. It is the standing rule set for every
+Quizzivy repository; each code repository's own `AGENTS.md` and
+`CONTRIBUTING.md` add what is specific to it.
+
+## Which repository
+
+| The change | Where |
+|---|---|
+| An endpoint, a schema, a shared catalogue | [`Quizzivy/sdk`](https://github.com/Quizzivy/sdk) first, then api and web pin the version it publishes |
+| Server, migrations, seed, setup and operations docs | [`Quizzivy/api`](https://github.com/Quizzivy/api) |
+| The app, the design deck | [`Quizzivy/web`](https://github.com/Quizzivy/web) |
+| Spec, plan, standing rules, team records, the wiki build, the project sync | here |
 
 ## Branch model
 
-Gitflow.
+Gitflow, in every repository.
 
 | Branch | Purpose |
 |---|---|
-| `main` | Released only, tagged `vX.Y.Z`. Never committed to directly. |
-| `develop` | Integration. Every feature PR targets this. |
-| `feature/t-<phase>-<n>-<slug>` | One task from a phase file. Branch off `develop`. |
-| `release/phase-<n>` | Cut when a phase's tasks are merged. Stabilization only. |
+| `main` | Released only. Never committed to directly. |
+| `develop` | Integration. Every PR targets this. |
+| `feature/<task>-<slug>` | One task. Branch off `develop`. |
 | `hotfix/<slug>` | Off `main`. Merged to **both** `main` and `develop`. |
-| `chore/<slug>` | Off `develop`. Repo-wide work that is not a plan task — tooling, layout, dependency bumps. |
-
-```bash
-git checkout -b feature/t-1-04-google-oauth develop
-# ... work, commit ...
-git push -u origin feature/t-1-04-google-oauth
-gh pr create --base develop
-```
+| `chore/<slug>` | Off `develop`. Work that is not a task: tooling, layout. |
 
 Merge the pull request with a merge commit, never a squash, so each task stays
-a visible unit in the history.
+a visible unit in the history. Here nothing deploys and nothing is tagged:
+`main` follows `develop` when the owner merges it.
 
 ## One task, one PR
 
-Tasks are defined in `docs/plan/10-phase-0.md` … `15-phase-5.md`. Each carries
-its own **Done when** list; that list is the acceptance criteria, and the PR
-template repeats the parts that apply to every change.
+Tasks are issues on the org's GitHub Project. A PR names its issue in a line
+`Task: #N` (moves it to In Progress, and to Done when the PR merges) or
+`Part of: #N` (links only). Labels `status:`, `next:`, `priority:`, `release:`
+and `workstream:` on an issue set those fields; `scripts/ci/project-sync.mjs`
+has the details.
 
 If a task turns out to be bigger than its stated size (S < 2h, M half day,
-L full day), split it and record the split in the phase file. Do not let a task
-grow past L.
-
-Order matters: tasks are sequenced so the phase builds and deploys at any task
-boundary. Do not merge a task whose dependencies are unmerged.
-
-## Phase completion
-
-When every task in a phase is merged to `develop`:
-
-```bash
-git checkout -b release/0.9.0 develop
-# fix only what the exit criteria surface
-git push -u origin release/0.9.0 && gh pr create --base main      # merge commit
-git fetch origin && git tag v0.9.0 origin/main && git push origin v0.9.0
-gh pr create --base develop --head main                           # back-merge
-```
-
-A phase is done when its **exit criteria** pass — the E2E tests named in the
-phase file, not a judgement call. Do not start the next phase with the current
-one red (spec §16).
+L full day), split it and record the split in the plan. Do not let a task
+grow past L. Do not merge a task whose dependencies are unmerged.
 
 ## Commit messages
 
-`T-<phase>.<n>: <imperative summary>`, then a body explaining *why*. English.
+An imperative summary that starts with the task id when there is one
+(`T-R6.4: ...`), then a body explaining *why*. English.
 
 Reference the spec by section number (`§13.3`), never by quoting it back.
 
-## Before opening a PR
+## Before opening a PR here
 
 ```bash
-make gen        # if api/openapi.yaml changed — commit the generated files
-make sdk-check  # if it changed: what a client of the SDK would see (sdk/README.md)
-make test
-make lint
+python3 -m unittest discover -s scripts/wiki/tests
+node --test "scripts/ci/tests/*.test.mjs"
+# with sdk, api and web checked out next to this repository:
+python3 scripts/wiki/build.py . /tmp/wiki --strict \
+  --with sdk=../sdk --with api=../api --with web=../web
 ```
 
-CI runs the same checks plus a codegen drift check and a migration up/down/up
-against `postgres:18`. `main`, `develop` and `work/**` accept changes only by
-pull request, and `develop` and `work/**` need the **CI result** check to
-pass. A job whose files already passed is skipped; `docs/setup/ci.md` explains
-how, and how to force a full run.
+CI runs the same; the required check is **CI result**.
 
 ## Documentation and the wiki
 
-The files under `docs/`, `AGENTS.md`, this file and the directory READMEs are
-the source. The repository's wiki is generated from them on every push to
-`develop` (`docs/setup/ci.md`, "The wiki"). Edit the file, never the wiki
+The files here, and the documentation in sdk, api and web, are the source. The
+wiki is generated from them (`docs/wiki.md`). Edit the file, never the wiki
 page: the next run overwrites it.
 
 ## Things that will get a PR sent back
 
-- A generated file edited by hand (`server/gen/`, `sdk/`)
+- A generated file edited by hand (`server/gen/` in api, `sdk/` in sdk)
 - A new dependency with no reason in the description
 - English-only user-facing text
 - A public endpoint without both §6.5 boxes ticked in the same PR
@@ -95,5 +79,5 @@ page: the next run overwrites it.
 ## Open questions
 
 Check `docs/plan/40-open-items.md` before asking. Most questions are already
-there with a stated default — build the default and move on. Ask one precise
+there with a stated default; build the default and move on. Ask one precise
 question only when the answer changes what you build.

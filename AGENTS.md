@@ -4,6 +4,25 @@ Read this file at the start of every session. Read `docs/quizzivy-spec-v0.3.md`
 before touching any area you have not worked on before, and
 `docs/plan/00-overview.md` before touching architecture.
 
+## Four repositories since October 2026 (D-082)
+
+Quizzivy was one repository, `SekiroKenjii/Quizzivy`, until the end of October
+2026. It is now split, with each file's history kept, and the old repository is
+an archive. These rules apply in every repository; each one's own `AGENTS.md`
+adds what is specific to it.
+
+| Repository | Paths named in these rules |
+|---|---|
+| `Quizzivy/sdk` | `api/openapi.yaml` (the source), `api/testdata/`, `api/catalogs/`, `sdk/` |
+| `Quizzivy/api` | `server/`, `migrations/`, `seed/`, `docker/`, `docs/setup/`, the root `Makefile`, `Dockerfile`, `fly.toml` and `docker-compose.yml`; a pinned copy of `api/openapi.yaml` (`api/sdk-version`) |
+| `Quizzivy/web` | `web/`, `docs/design/` (the deck), `scripts/check-design-deck.mjs`; its CI and deploy are in `docs/ci.md` and `docs/deploy.md` |
+| `Quizzivy/docs` (this one) | `docs/quizzivy-spec-v0.3.md`, `docs/quizzivy-word-import-spec.md`, `docs/plan/`, `docs/team/`, the wiki build, the project sync |
+
+A path below means that path in the repository that holds it. Where a section
+describes a command (`make dev`, `make gen`) or CI, it now runs in that
+repository, and its README and `AGENTS.md` say how; where they and this file
+disagree about the mechanics, theirs is current.
+
 ## Redesign in progress (Phase R)
 
 The product is being rebuilt to a new design deck, release by release
@@ -39,13 +58,14 @@ this file describe the code as it is and name the release that changes them.
 2. `docs/plan/` — the implementation plan derived from it
    (`docs/design/deck/` is the UI; spec §12 records the rules drawn from it,
    and `docs/design/gaps.md` the decided departures)
-3. `api/openapi.yaml` — the API contract; spec §15 is documentation of it
+3. `api/openapi.yaml` in `Quizzivy/sdk` — the API contract; spec §15 is documentation of it
 4. Neon `postgres-best-practices` skill — all DDL and SQL
 5. <https://www.postgresql.org/docs/18/index.html> — anything PG-version-specific
 
 Where 1 and 2 disagree, the spec wins and the plan gets corrected.
 Where 4 and 5 disagree, the PostgreSQL docs win.
-Where 3 and anything disagree, fix `openapi.yaml` first, then regenerate.
+Where 3 and anything disagree, fix `openapi.yaml` in sdk first, then move the
+pin in api and web to the version it publishes.
 
 Install the skill with `npx skills add neondatabase/postgres-skills`. One live
 conflict to know: the skill teaches the pre-18
@@ -183,6 +203,9 @@ rules between `domain`, `application`, `repositories`, `http`, `platform`,
 by `core/tests/architecture_test.go`.
 
 ## Repository map
+
+As in the monorepo; the table at the top says which repository holds each
+directory now.
 
 ```
 api/openapi.yaml   the contract — edit this first, then `make gen`
@@ -352,18 +375,26 @@ Zod schemas stay hand-written for form input, each carrying a type-level
 `Expect<Equal<…>>` assertion against the generated request type. Drift fails
 `tsc`, not review.
 
-Adding an endpoint means: edit `openapi.yaml` → `make gen` → implement both
-sides → commit the generated files.
+Adding an endpoint means: a PR in `Quizzivy/sdk` that edits `openapi.yaml`,
+with the `Quizzivy/api` PR that implements it open and green on that contract;
+after the sdk merge, api pins the version it published in `api/sdk-version`
+and runs `make gen`, and web runs `make sdk VERSION=…`; each commits the
+result. The READMEs of sdk, api and web describe each step.
 
 ## Local development
+
+In `Quizzivy/api` for the database, the API and the worker:
 
 ```
 docker compose up -d     postgres:18 + minio
 make migrate             goose up, as quizzivy_migrate
 make seed
-make gen                 regenerate from api/openapi.yaml
-make dev                 web on :5173, api on :8080
+make gen                 regenerate from the pinned contract (api/sdk-version)
+make dev                 api on :8080, plus the worker when imports are configured
 ```
+
+and in `Quizzivy/web` for the app: `make dev-web`, on :5173 against the API on
+:8080.
 
 Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
@@ -468,17 +499,20 @@ looks exactly like your fix not working.
 
 ## CI
 
-`docs/setup/ci.md` describes it. What to keep in mind while working:
+Each repository has its own: `docs/setup/ci.md` in api, `docs/ci.md` in web,
+the README in sdk, and `docs/wiki.md` here. The planner below is api's and
+web's. What to keep in mind while working:
 
 - **A job is skipped only when the same files passed it and have not failed
   it since.** `scripts/ci/plan.mjs` names the set of files each job reads and
   hashes it; a job records its outcome for that hash, and Plan skips the job
-  while the newest record is a pass. So a change under `docs/plan/` normally
-  runs no code job, and a server-only change no web job.
+  while the newest record is a pass. So a change to a README normally runs no
+  code job.
 - **Each job checks out only its set.** A test that reads a file outside its
-  own tree (the web join-code test reads `joincode.go`; the isolation suite
-  reads an mp3 under `web/tests/e2e/fixtures/`) needs that path in the set's
-  `include`, in the same PR. Never make a test skip when a file is missing.
+  own tree needs that path in the set's `include`, in the same PR. Data the
+  API and the web both check (the join-code format, the audit sentences) comes
+  from `@quizzivy/sdk`, never from the other repository. Never make a test
+  skip when a file is missing.
 - **"Re-run all jobs" runs everything**, and so does a push to `main`. Use the
   first when a skipped job should be run again.
 - **The required check is CI result**, not the individual jobs, and only a
@@ -487,7 +521,9 @@ looks exactly like your fix not working.
 
 ## Git workflow
 
-Gitflow. `main` is released only and tagged; `develop` is integration.
+Gitflow, in each repository. `main` is released only and tagged; `develop` is
+integration. A release ships sdk first, then api, then web (each repository's
+`CONTRIBUTING.md`).
 
 - One task from a phase file = one branch = one PR: `feature/t-<phase>-<n>-<slug>`
   off `develop`.
@@ -505,8 +541,8 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   commit, and `develop` and `work/**` also need **CI result** to pass
   (`docs/setup/ci.md`, "Branch rules").
 
-Tasks are issues on the org's GitHub Project (`docs/setup/ci.md`, "The project
-board"). A pull request names its issue in a line `Task: #N` (or `Part of: #N`),
+Tasks are issues on the org's GitHub Project; the sync that keeps it current is
+here (`scripts/ci/project-sync.mjs`). A pull request names its issue in a line `Task: #N` (or `Part of: #N`),
 and progress is reported with `status:` and `next:` labels on the issue.
 
 **A behavioural change never rides along in a formatting sweep.** A commit that
@@ -793,6 +829,5 @@ itself, because it is its own release, and its back-merge carries the number
 down. Migration numbers and the `D-nn` ids of `docs/plan/20-data-model.md` are
 permanent ids, not a version, and keep the rule in `docs/team/README.md`.
 
-The wiki is generated from these documents on every push to `develop`
-(`docs/setup/ci.md`, "The wiki"). Edit the file in the repository, never a wiki
-page.
+The wiki is generated from these documents and those of sdk, api and web
+(`docs/wiki.md`). Edit the file in its repository, never a wiki page.
