@@ -6,6 +6,7 @@
 **Changes pending (R6, v0.13.x)**
 
 - DG-231 §8 §15 "Suggest wrong options" is on a gap's card in the builder's pane for a passage, a cloze or a recording (owner, 2026-11-12; question Q7 of the design proposal). `suggestAiGapDistractors` (`POST /teacher/ai/gaps/distractors`, `ai.use`) takes the gap as the pane holds it, saved or not: `{before, after, answers, options?}`, the gap's sentence on either side of the gap, the answers it accepts with the word it replaced first, and the wrong options it already has. It reads nothing stored, sends only those texts to the provider and answers what `suggestAiDistractors` does, up to four suggestions that are none of the answers or options; `422` when the first answer holds no word. It is metered and limited with the other suggestions (ten a minute and a hundred an hour for each user). An additive contract change; no migration.
+- DG-231 §7.3 A material's gap that is bound to a blank prints its question's number when it is the only gap of the group that question answers, in the student's test, the preview, the result and the teacher's reviews of an attempt; it printed its stored label, which the builder's pane no longer shows and which followed the order the gaps were made in (owner, 2026-11-12). Gaps answered by several blanks of one question keep their labels. Web only; the contract, the server and the schema are unchanged.
 
 **Changes since v0.120**
 
@@ -2130,6 +2131,15 @@ answer-row IDs cannot bind responses. Each material gap has exactly one target;
 a response appears only once across that group's material gaps. Gap names are
 local to their material or question. Empty groups are valid drafts but cannot
 publish; existing sections are not reinterpreted as groups.
+
+What a material's gap prints to a reader (the student's test, the preview, the
+result and the teacher's reviews of an attempt): a gap bound to a choice member
+prints that question's number. So does a gap bound to a blank when it is the
+only gap of the group that its question answers: it stands for the whole
+question, which is how the builder's pane draws it (DG-231). Where several gaps
+are answered by blanks of one question, each prints its own label, which is what
+tells them apart. The grading queue's answer card knows the number of the answer
+being marked only, and prints the other gaps' labels.
 
 The complete resolved context is bounded to 200 members, 16 materials, 16 shared
 recordings and 4 MiB, with per-document content limits still enforced. Materials
