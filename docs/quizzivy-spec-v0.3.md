@@ -3,6 +3,10 @@
 **Version:** 0.121 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (R6, v0.13.x)**
+
+- DG-231 §8 §15 "Suggest wrong options" is on a gap's card in the builder's pane for a passage, a cloze or a recording (owner, 2026-11-12; question Q7 of the design proposal). `suggestAiGapDistractors` (`POST /teacher/ai/gaps/distractors`, `ai.use`) takes the gap as the pane holds it, saved or not: `{before, after, answers, options?}`, the gap's sentence on either side of the gap, the answers it accepts with the word it replaced first, and the wrong options it already has. It reads nothing stored, sends only those texts to the provider and answers what `suggestAiDistractors` does, up to four suggestions that are none of the answers or options; `422` when the first answer holds no word. It is metered and limited with the other suggestions (ten a minute and a hundred an hour for each user). An additive contract change; no migration.
+
 **Changes since v0.120**
 
 Patch v0.13.2: N-04, the AI assistant on every question type (#822). Server, web and an additive contract change; no migration.
@@ -2316,6 +2320,7 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Question bank, header | "Clean up" and "Generate" | `cleanUpQuestionBank`, `generateAiQuestions` |
 | Test detail | "Make a variant", disabled without a published version | `makeTestVariant`, then `duplicateTest`, `duplicateQuestion` and `updateQuestion` |
 | Question editor, in the bank and in the builder | "Write with AI" on the Explanation, on every type (an essay needs its sample answer, N-04); "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
+| A gap's card, in the builder's pane for a passage, a cloze or a recording | "Suggest wrong options" for the gap, typed or chosen; "Add" writes a suggestion on the card's first empty row, which makes a typed gap a choice (DG-231) | `suggestAiGapDistractors`, then `updateQuestionGroup` |
 | Grading card | "Suggest a score" on a short answer while "Let AI read student answers" is on; with it off, one line that says so and links to Settings › AI assistant | `suggestAiScore` |
 | Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
@@ -3652,6 +3657,11 @@ POST   /teacher/ai/tests/:id/variant    {changes ⊆ reword|reorder|distract, di
 POST   /teacher/ai/questions/:id/explanation {language, length?} → {text, usage}; 422 without an answer key
 POST   /teacher/ai/questions/:id/distractors → {items: [{text, why}] (up to 4), usage}; 422 unless a single or
                                           multiple choice question with a key
+POST   /teacher/ai/gaps/distractors     {before, after, answers, options?} → {items: [{text, why}] (up to 4), usage};
+                                          for a gap in a group's material as the builder holds it, saved or not: its
+                                          sentence on either side of the gap, the answers it accepts (the word first)
+                                          and its wrong options; reads nothing stored; 422 when the first answer holds
+                                          no word
 POST   /teacher/ai/attempts/:attemptId/answers/:questionId/score-suggestion
                                         → {score (0 to the points, steps of 0.5), confidence, reasons, comment, usage};
                                           also needs teaching.grading and the caller's readStudentAnswers (403
