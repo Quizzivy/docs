@@ -1,0 +1,26 @@
+name: Check out the other repositories
+description: >-
+  Checks out the develop branch of Quizzivy/sdk, api and web under .repos/, so
+  the wiki build can publish their documentation and resolve links into them.
+  They are public, so the workflow token reads them.
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/sdk
+        ref: develop
+        path: .repos/sdk
+        persist-credentials: false
+    - uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/api
+        ref: develop
+        path: .repos/api
+        persist-credentials: false
+    - uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/web
+        ref: develop
+        path: .repos/web
+        persist-credentials: false

@@ -1,0 +1,69 @@
+name: Wiki
+
+# Publishes the wiki of this repository from the documentation of docs, sdk, api
+# and web (scripts/wiki/build.py). A push here runs it at once; a change in
+# another repository reaches the wiki with the daily run, or with Run workflow.
+# The wiki must exist (Settings, Features, Wikis, and one page saved by hand)
+# before the first run can clone it.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'scripts/wiki/**'
+      - '.github/workflows/wiki.yml'
+      - '.github/actions/checkout-repos/**'
+  schedule:
+    - cron: '23 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      # Only the wiki clone below needs the write token.
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+          persist-credentials: false
+      - uses: ./.github/actions/checkout-repos
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: .wiki
+      - name: Test the build
+        run: python3 -m unittest discover -s scripts/wiki/tests
+      # Not --strict: a broken link in another repository should not hold the
+      # rest of the wiki back. It shows as a warning here and fails this
+      # repository's next PR check.
+      - name: Build the pages into the wiki
+        run: >-
+          python3 scripts/wiki/build.py . .wiki
+          --with sdk=.repos/sdk --with api=.repos/api --with web=.repos/web
+      - name: Push the difference
+        working-directory: .wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki is current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync docs from ${GITHUB_SHA::7}"
+          git push

@@ -1,0 +1,60 @@
+name: CI
+
+# Every PR: the wiki builds from this branch plus the develop branch of sdk, api
+# and web with no broken link (--strict), and the scripts' own tests pass.
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  wiki:
+    name: Wiki build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/checkout-repos
+      - name: Test the build
+        run: python3 -m unittest discover -s scripts/wiki/tests
+      - name: Build the pages, failing on a broken link
+        run: >-
+          python3 scripts/wiki/build.py . "$RUNNER_TEMP/wiki" --strict
+          --with sdk=.repos/sdk --with api=.repos/api --with web=.repos/web
+
+  scripts:
+    name: Scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The scripts' own tests
+        run: node --test "scripts/ci/tests/*.test.mjs"
+
+  result:
+    name: ${{ github.event_name == 'pull_request' && 'CI result' || 'CI result (push)' }}
+    needs: [wiki, scripts]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for r in $RESULTS; do
+            [ "$r" = success ] || { echo "::error::a job ended $r"; exit 1; }
+          done

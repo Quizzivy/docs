@@ -1,0 +1,14 @@
+# Agent skills are pinned by skills-lock.json, not vendored.
+# Restore with: npx skills add neondatabase/postgres-skills
+.agents/skills/
+.claude/skills/
+
+# What CI checks out next to this repository for the wiki build
+.repos/
+.wiki/
+
+# Editors / OS
+.DS_Store
+.idea/
+*.swp
+__pycache__/
