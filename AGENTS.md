@@ -612,10 +612,7 @@ where it does not apply, so a phone frame on a wide window draws the phone's
 sizes. `.student-surface`, on the
 shell's `<main>`, on `FocusLayout` and on the engine's preview, puts a 44px
 floor on buttons below 1024px, or in such a frame; a control the deck draws
-smaller opts out in its own classes. No `/app`
-route loads `SideColumn`, directly or through `PageAside`
-(`tests/units/student/side-column.test.ts`), and none imports
-`useColumnWidth`. `DeckDialog`
+smaller opts out in its own classes. `DeckDialog`
 (`components/shared/`) is the frame of the student's dialogs; the "You left
 the test" alert (`StrikeDialog`, 420px) and the question sheet draw their own
 on the dialog primitive.
