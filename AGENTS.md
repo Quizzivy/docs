@@ -575,6 +575,18 @@ or a literal hex, `rgb()`/`rgba()` or `oklch()` colour, in every `.ts`/`.tsx`
 file under `src/` except `GoogleMark.tsx`; the literal values behind the tokens
 live in `src/index.css`, which it does not scan.
 
+No block carries a thick or coloured line on one side (the owner, 2026-11-12;
+DG-230 in `docs/design/gaps.md`): no accent stripe along a card's edge, no bar
+beside a quote, no line down the side of a selected row, in the app or in an
+email. Set a block apart by space, by a quieter ground (`--muted`, `--hover`)
+or by a hairline all the way round, and mark the current item of a list with
+the `--hover` ground, as the sidebar and the settings navigation do.
+`tests/units/styles/no-edge-stripes.test.ts` refuses a one-sided border wider
+than a hairline, or an inset shadow with no blur, on the top, left or right
+edge, in every `.ts`, `.tsx` and `.css` file under `src/`. It does not look at
+a line under a block: a key cap's bottom edge, a blank's underline, the line
+under the selected tab.
+
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
