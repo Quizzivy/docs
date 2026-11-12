@@ -232,7 +232,7 @@ server/            Go module `quizzivy`: a modular monolith
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
                      access (roles, grants, the principal cache; http/ serves /admin/roles);
-                     ai (the provider port, the credits and the eight suggestions) is D4's, with
+                     ai (the provider port, the credits and the nine suggestions) is D4's, with
                      domain/prompts/ for each feature's prompt and schema;
                      notifications (the store, the kinds and their producers, the
                      due-time items, a user's switches) is R4's;
