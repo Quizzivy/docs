@@ -302,6 +302,20 @@ unit, integration and end-to-end in that order.
   `system.api_reference`, `system.data_export`, `system.leads`), which only the
   Admin wildcard holds (`httpx.PermissionRequirements`). The console's web
   routes and their guard are under "Design".
+- **A session belongs to the web host it was opened at** (spec §5.8). The web
+  is one build on two hosts, the student's (`my.quizzivy.com`) and the staff's
+  (`portal.quizzivy.com`), and the API tells them apart by the request's
+  `Origin`, read against `STUDENT_APP_URL` and `STAFF_APP_URL`
+  (`access.Hosts.AudienceOf`). Each audience has its own refresh cookie, which
+  `identity/http/cookie.go` reads and sets and nothing else may; a session's
+  audience is stored with it and named in its access token; `RequirePermission`
+  refuses a student session under `/teacher` and `/admin` and a staff session
+  under `/app`; and `Audience.Admits` decides, each time a session is opened or
+  refreshed, whether the account belongs at that host. Any other origin, and no
+  `Origin` at all, is `any`: one host for every account, which is what local
+  development and most tests are. A new operation that opens a session goes
+  through `IssueSession`; a new read or write of the session list filters by
+  the request's audience.
 - **Everything the contract does not explicitly open requires a bearer token**,
   derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
@@ -398,7 +412,10 @@ and in `Quizzivy/web` for the app: `make dev-web`, on :5173 against the API on
 
 Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
-`docs/plan/00-overview.md` §4.1.
+`docs/plan/00-overview.md` §4.1. The same holds for the two web hosts: to run
+them locally, or in a test, use two ports of `localhost`, never `my.localhost`
+and `portal.localhost`, which are other sites than `localhost` (spec §5.8; the
+web's E2E serves one build on 4173, 4174 and 4175).
 
 Six local-dev facts worth not rediscovering:
 
@@ -575,6 +592,14 @@ or a literal hex, `rgb()`/`rgba()` or `oklch()` colour, in every `.ts`/`.tsx`
 file under `src/` except `GoogleMark.tsx`; the literal values behind the tokens
 live in `src/index.css`, which it does not scan.
 
+No rounded box carries a border on one side only (the owner, 2026-11-12): no
+card, panel, callout or quote with rounded corners and an accent edge along its
+top or its side, in the app or in an email. It is the stock look of generated
+UI. Set such a box apart by space, by a quieter ground (`--muted`, `--hover`)
+or by a hairline all the way round. The rule is about boxes, not about lines
+that mark a state: the lime line on the grading queue's active row and the line
+under the selected tab are the deck's and stay.
+
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
@@ -592,8 +617,11 @@ never names the teacher. Since R4 (T-R4.46) the teacher's roster shows the
 flags and "Flagged". The teacher judges; the app reports —
 the product never concludes that a student cheated.
 
-The student app lives in `StudentLayout`, whose one outlet stays mounted at
-every width, so forms survive resizing. The shell branches at 768px in code
+The student app lives in `StudentLayout`, at the root of the student host
+(`/`, `/classes`, `/assignments/:id`, `/settings`; spec §5.8), whose one outlet
+stays mounted at every width, so forms survive resizing. A link to a student
+page is written without a prefix, and code that needs the student host's origin
+(a join link) takes it from `studentOrigin()`, never from `window.location`. The shell branches at 768px in code
 (`useMediaQuery("(min-width: 768px)")` and `min-[768px]:`, never `md:`): the
 destinations sit in the top bar from 768 and in a bottom tab bar below it. A
 detail route declares `handle.detail`: below 768 the header swaps the logo for
