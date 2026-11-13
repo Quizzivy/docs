@@ -117,9 +117,11 @@ fixture validation), `oapi-codegen` (Go tool — server generation).
 
 ### 4.1 Deployment topology and the refresh cookie
 
-`app.quizzivy.com` serves the SPA; `api.quizzivy.com` serves the Go API. Both are
-subdomains of one registrable domain, which makes every request between them
-**same-site** even though it is cross-*origin*.
+`my.quizzivy.com` and `portal.quizzivy.com` serve the SPA, one build on two
+hosts (spec §5.8; until 2026-11 it was the one host `app.quizzivy.com`);
+`api.quizzivy.com` serves the Go API. All three are subdomains of one
+registrable domain, which makes every request between them **same-site** even
+though it is cross-*origin*.
 
 This matters because §5.2 specifies `SameSite=Lax`, and Lax cookies are never
 sent on cross-**site** `fetch`. On this topology they are sent, so §5.2 works
@@ -128,8 +130,13 @@ backend, say) `/auth/refresh` would silently never authenticate. The topology is
 load-bearing; it is not a deployment detail to revisit casually.
 
 - Refresh cookie: `httpOnly; Secure; SameSite=Lax; Path=/auth`, and **host-only**
-  — no `Domain` attribute, so `app.quizzivy.com` never receives it. The API is at
+  — no `Domain` attribute, so neither web host ever receives it. The API is at
   the root of its host, so `Path=/auth` matches `/auth/refresh` exactly.
+- Two web hosts mean the one API host would get the same cookie from both, so
+  the API keeps a cookie per host and chooses by the request's `Origin`
+  (spec §5.8). A test of two hosts needs them same-site with the API as well:
+  two ports of `localhost`, never `my.localhost` and `portal.localhost`, which
+  are other sites than `localhost`.
 - CORS: exact-origin allowlist (never `*`, which is illegal with credentials),
   `Access-Control-Allow-Credentials: true`, `Vary: Origin`, and preflight
   handling for `PATCH`/`DELETE` plus the `Authorization` and JSON content-type

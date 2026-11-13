@@ -23,7 +23,9 @@ O-R5.1 to O-R5.13, below).
 
 
 ### O-14 — DNS records for quizzivy.com · before first deploy — **RESOLVED**
-**Resolved:** production serves the SPA on `app.quizzivy.com` and the API on
+**Resolved:** production serves the SPA on `my.quizzivy.com` (students) and
+`portal.quizzivy.com` (teachers and admins) since the owner's decision of
+2026-11-13 (spec §5.8, web#51; `app.quizzivy.com` before that) and the API on
 `api.quizzivy.com` (`docs/setup/dns.md`, `docs/setup/deploy.md`). The apex is kept for R11's
 Landing (D10). The text below is the question as it was asked.
 
