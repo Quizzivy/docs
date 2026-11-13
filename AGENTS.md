@@ -575,6 +575,14 @@ or a literal hex, `rgb()`/`rgba()` or `oklch()` colour, in every `.ts`/`.tsx`
 file under `src/` except `GoogleMark.tsx`; the literal values behind the tokens
 live in `src/index.css`, which it does not scan.
 
+No rounded box carries a border on one side only (the owner, 2026-11-12): no
+card, panel, callout or quote with rounded corners and an accent edge along its
+top or its side, in the app or in an email. It is the stock look of generated
+UI. Set such a box apart by space, by a quieter ground (`--muted`, `--hover`)
+or by a hairline all the way round. The rule is about boxes, not about lines
+that mark a state: the lime line on the grading queue's active row and the line
+under the selected tab are the deck's and stay.
+
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
