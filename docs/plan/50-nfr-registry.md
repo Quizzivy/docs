@@ -38,7 +38,7 @@ at the end says how much is covered and what the next round is.
 | NFR-S10 | CORS is an exact-origin allowlist with credentials, never `*`; `Vary: Origin` | §4.1 overview, R-07 | ✅ | `httpx/cors.go` + `cors_test.go` |
 | NFR-S11 | Every teacher intervention that changes a student's record (extend, reset, void, reopen, flag, note, close early) is audited with actor, reason and the previous value, in the same statement | §8, D-04 | ✅ | `OLD`/`NEW` in `RETURNING` inside data-modifying CTEs; `app.audit_log`; `classes.Update` is the one write still unaudited (decision pending) |
 | NFR-S12 | The database roles are split: `quizzivy_migrate` owns, `quizzivy_app` has DML only; the audit log is append-only for the app role | §13.5, #11 | ✅ | `migrations/00001`, `internal/db` grant tests |
-| NFR-S13 | Browser hardening headers on both hosts: HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `frame-ancestors 'none'`, and a CSP matching PKCE, the API and private media origins | good practice; not in spec | 🟡 | API middleware and Pages `_headers` implemented, and observed in production on 2026-10-04 (`../setup/operations.md`). Sign-in and media under the CSP await the owner's check (#78). `core/router/tests/hardening_test.go`. |
+| NFR-S13 | Browser hardening headers on both hosts: HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `frame-ancestors 'none'`, and a CSP matching PKCE, the API and private media origins | good practice; not in spec | 🟡 | API middleware and Pages `_headers` implemented. Observed in production again on 2026-11-14, on `api.`, `my.` and `portal.quizzivy.com`, and a 2 MiB JSON body was answered 413 (Quizzivy/api#13, closed). The owner signed in under the CSP that day; that audio plays under it is the one check left, in the board's smoke item. `core/router/tests/hardening_test.go`. |
 | NFR-S14 | Request bodies are size-limited and the server has read/header/idle timeouts | good practice | ✅ | 1 MiB cap before schema validation, streaming media exemption and security-header tests; existing server timeouts unchanged. |
 | NFR-S15 | Dependencies: none added without a stated reason; Sonar runs on every push | §14 DoD, §18 | ✅ | CI `Sonar` job; PR template |
 | NFR-S16 | Every operation declares `x-permission` (a key, a pseudo-key or an any-of list) or is open, and `httpx.RequirePermission` enforces it on every request; the API refuses to start when an operation breaks that rule, names a key outside the catalogue or its path's tree, or `app.permissions` lacks a compiled key | 70 §4.2 and D6, T-R2.4, T-R2.5 | ✅ | `httpx.PermissionRequirements` in `router.New`; `CheckCatalogue` in `wiring.Build`; `core/router/tests/permissions_test.go` with `testdata/permissions.golden` (97 operations); `core/tests/catalogue_test.go`; `web/tests/units/contract/openapi-contract.test.ts` |
@@ -78,9 +78,9 @@ at the end says how much is covered and what the next round is.
 | NFR-A01 | The API is always warm: one machine minimum, never auto-stopped, `/livez` checked by the platform | O-16, `fly.toml` | ✅ | `min_machines_running = 1`, `auto_stop_machines = false`, `[[http_service.checks]]` |
 | NFR-A02 | Nothing deploys from `develop`; a merge to `main` deploys only after CI is green, API before SPA, migrations in the release command with rollback on failure | `docs/setup/deploy.md` | ✅ | `deploy.yml` `workflow_run` gate, preflight, post-deploy verification |
 | NFR-A03 | The deploy verifies itself: the machine is running and the API answers, or the job fails loudly with the crash log | `deploy.md` | ✅ | "Verify the API answers", "Why it crashed" steps |
-| NFR-A04 | Database backups exist and a restore has been rehearsed: Neon history retention is set to a known window and a point-in-time restore has been done once into a branch | good practice | ❓ | Recovery verifier and isolated-drill procedure are in `../setup/operations.md`; actual Neon history window and production PITR remain unverified because project access is unavailable (#79) |
-| NFR-A05 | An outage is noticed by a person, not by a student: uptime check on `/healthz` and the SPA, with a notification | good practice | 🟡 | Fly checks affect routing, not automatic restart. Repository monitor and owner setup: `../setup/operations.md`; delivered notification still pending. `PRODUCTION_MONITOR_ENABLED` unset on 2026-10-04 (#81). |
-| NFR-A06 | Unexpected errors are collected with their request id so a student's "it broke" can be found | §9 error boundary | 🟡 | The boundary shows a copyable id and the server logs it; no error tracker aggregates them. Same decision issue as A05 |
+| NFR-A04 | Database backups exist and a restore has been rehearsed: the retention window is known, and one restore has been done and compared with the live database | good practice | ✅ | Since the cutover of 2026-11-12 the database is PostgreSQL on the VPS. pgBackRest keeps seven days of point-in-time restore and an encrypted dump is taken nightly and kept 14 days, both in R2 (Quizzivy/infra, `docs/vps.md`, *Backups and restore*). A restore was rehearsed on 2026-11-14 and matched production table by table (Quizzivy/api#12). The drill is monthly; `scripts/verify-recovery.mjs` needs repairing before it can serve the next one. |
+| NFR-A05 | An outage is noticed by a person, not by a student: uptime check on `/healthz` and the SPA, with a notification | good practice | ✅ | A scheduled Worker on Cloudflare, `quizzivy-uptime`, asks the API's `/healthz` and the sign-in page of both web hosts every five minutes and mails the operator when one fails two rounds in a row, and again when it recovers (Quizzivy/infra, `docs/monitoring.md`). Its test mail reached the owner on 2026-11-14 (Quizzivy/api#11, closed). `production-monitor.yml` stays on as a second opinion; GitHub starts it only a few times a day. On the VPS Docker restarts a container that exits; nothing restarts one that hangs. |
+| NFR-A06 | Unexpected errors are collected with their request id so a student's "it broke" can be found | §9 error boundary | 🟡 | The boundary shows a copyable id and the server logs it; no error tracker aggregates them. On 2026-11-14 the owner took uptime monitoring only (Quizzivy/api#11): log alerts and error tracking are not planned. |
 | NFR-A07 | Secrets are provisioned once and checked before use; a missing one fails the deploy with a name | `deploy.md` | ✅ | "Check the token is present" steps |
 | NFR-A08 | Fitting the machine: 512 MB with Argon2 bounded; memory is raised only alongside the hash bound | R-13 | ✅ | `fly.toml` comment |
 | NFR-A09 | Local development reproduces production: compose PG18 + MinIO, seed, `make test-api`; one documented loop | AGENTS.md, `00-overview.md` §9 | ✅ | `docker-compose.yml`, `Makefile`, `seed/` |
@@ -168,7 +168,7 @@ at the end says how much is covered and what the next round is.
 |---|---|---|---|---|
 | NFR-O01 | Structured JSON logs with a request id on every line; the id is returned in the error envelope and shown by the error boundary | overview §7, §9 | ✅ | `httpx/requestid.go`, `logging.go`, `ErrorBoundary.tsx` |
 | NFR-O02 | Health is observable: `/healthz` answers only when the database does | `router.go` | ✅ | `healthz(deps.DB)` |
-| NFR-O03 | A person is told when it breaks (see A05/A06) | — | 🟡 | Repository uptime workflow prepared; owner notification setup and delivery test pending. `../setup/operations.md`. |
+| NFR-O03 | A person is told when it breaks (see A05/A06) | — | ✅ | The uptime probe mails the operator when the API or the web stops answering, and a failed backup on the box mails him too (Quizzivy/infra#9); both mails reached the owner on 2026-11-14. Who is told, and what to do then: Quizzivy/infra, `docs/monitoring.md`. |
 | NFR-O04 | The five dashboard counts and the sidebar counts are one round trip each, so the admin shell never fans out | §8, D-19 | ✅ | `GET /teacher/dashboard` |
 
 ---
@@ -199,10 +199,10 @@ still required.
 **Đợt 4 — before `release/*` to `main`.** Everything that changes what a
 stranger on the internet can do, or what is lost if the database is:
 
-1. NFR-S13 verify sign-in and media under the deployed CSP: the owner's check (#78). The headers themselves were observed in production on 2026-10-04.
-2. NFR-A04 record Neon's retention and rehearse one restore into a branch (issue).
+1. NFR-S13 verify that audio plays under the deployed CSP: the owner's check (the board's smoke item). The headers were observed again on 2026-11-14, and the owner signed in under them that day.
+2. NFR-A04 done on 2026-11-14: the retention is recorded and one restore was rehearsed, on the VPS that replaced Neon.
 3. NFR-S05/S06 **T-5.2** — drive every public limit past its threshold, re-run the leak review.
-4. NFR-A05/A06/O03 — activate the prepared availability monitor and prove owner notification delivery; error aggregation remains deferred.
+4. NFR-A05/O03 done on 2026-11-14: an uptime probe on Cloudflare mails the owner, and its test mail reached him. NFR-A06: error aggregation is not planned.
 
 **Đợt 5 — Phase 5 proper, after the first release.** T-5.3 accessibility
 (NFR-F01–F03), T-5.4 bundle budgets (E05/E06), T-5.7 state audit (U01), T-5.8
@@ -213,6 +213,6 @@ language review (I05), T-5.6 360 px on a real phone (C02), T-5.1 `auto_submit`
 (E04), the first authorized NFR-P05 maintenance run under approved O-23, the audit-log
 screen the plan already lists under "not in v1".
 
-**Standing.** NFR-A04 needs Neon access and confirmation of the actual restore
-window. O-23 resolved the retention policy; maintenance remains an explicit
+**Standing.** NFR-A04 is met on the VPS, and its drill is monthly (Quizzivy/infra,
+`docs/vps.md`). O-23 resolved the retention policy; maintenance remains an explicit
 privileged operation. Each remaining gap has an issue or Phase 5 task.
