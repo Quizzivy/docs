@@ -14,6 +14,8 @@
 - DG-231 §8 §15 "Suggest wrong options" is on a gap's card in the builder's pane for a passage, a cloze or a recording (owner, 2026-11-12; question Q7 of the design proposal). `suggestAiGapDistractors` (`POST /teacher/ai/gaps/distractors`, `ai.use`) takes the gap as the pane holds it, saved or not: `{before, after, answers, options?}`, the gap's sentence on either side of the gap, the answers it accepts with the word it replaced first, and the wrong options it already has. It reads nothing stored, sends only those texts to the provider and answers what `suggestAiDistractors` does, up to four suggestions that are none of the answers or options; `422` when the first answer holds no word. It is metered and limited with the other suggestions (ten a minute and a hundred an hour for each user). An additive contract change; no migration.
 - DG-231 §7.3 A material's gap that is bound to a blank prints its question's number when it is the only gap of the group that question answers, in the student's test, the preview, the result and the teacher's reviews of an attempt; it printed its stored label, which the builder's pane no longer shows and which followed the order the gaps were made in (owner, 2026-11-12). Gaps answered by several blanks of one question keep their labels. Web only; the contract, the server and the schema are unchanged.
 
+- web#5 §5.2 A 408 answered to the refresh call is not a lost session (owner, 2026-11-14). The API or a proxy before it answers 408 when a request was too slow to arrive, which says nothing about who asked: the session stays, as after a network failure or a 5xx.
+
 **Changes since v0.120**
 
 Patch v0.13.2: N-04, the AI assistant on every question type (#822). Server, web and an additive contract change; no migration.
@@ -1623,7 +1625,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
       through its expired-session card; that path remains unresolved.
   - "Đăng nhập" clears the session, keeps the answer drafts, and goes to `/login?next=<path>`.
   - While that overlay is up, a 401 returns to its caller without another refresh.
-- A refresh that **fails without refusing** (a network failure, a 503 or another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
+- A refresh that **fails without refusing** (a network failure, a 408, a 503 or another 5xx) is not a lost session. Waiting requests fail retryably and nobody is signed out.
 - App load: `GET /auth/me`, under the boot splash (§9).
   - 401 → signed out, unless a sign-in finished while the request was out.
   - A network failure (no HTTP response at all, on `/auth/me` or on the refresh it triggers) → the splash's offline state, which retries.
