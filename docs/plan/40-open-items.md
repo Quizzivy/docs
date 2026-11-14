@@ -297,7 +297,11 @@ refuses the switch as a Fly secret.
 
 ---
 
-### O-25 — A malformed option id in an autosave · any phase
+### O-25 — A malformed option id in an autosave · any phase — **RESOLVED**
+**Resolved:** kept, as the default said. The owner chose it on 2026-11-14, in
+the triage of the open issues, and Quizzivy/api#8 was closed. The text below is
+the question as it was asked.
+
 **Default:** keep it. A student mid-test never loses a batch because one entry
 is malformed, and the web app cannot send one.
 
