@@ -79,7 +79,7 @@ at the end says how much is covered and what the next round is.
 | NFR-A02 | Nothing deploys from `develop`; a merge to `main` deploys only after CI is green, API before SPA, migrations in the release command with rollback on failure | `docs/setup/deploy.md` | ✅ | `deploy.yml` `workflow_run` gate, preflight, post-deploy verification |
 | NFR-A03 | The deploy verifies itself: the machine is running and the API answers, or the job fails loudly with the crash log | `deploy.md` | ✅ | "Verify the API answers", "Why it crashed" steps |
 | NFR-A04 | Database backups exist and a restore has been rehearsed: the retention window is known, and one restore has been done and compared with the live database | good practice | ✅ | Since the cutover of 2026-11-12 the database is PostgreSQL on the VPS. pgBackRest keeps seven days of point-in-time restore and an encrypted dump is taken nightly and kept 14 days, both in R2 (Quizzivy/infra, `docs/vps.md`, *Backups and restore*). A restore was rehearsed on 2026-11-14 and matched production table by table (Quizzivy/api#12). The drill is monthly; `scripts/verify-recovery.mjs` needs repairing before it can serve the next one. |
-| NFR-A05 | An outage is noticed by a person, not by a student: uptime check on `/healthz` and the SPA, with a notification | good practice | 🟡 | `production-monitor.yml` has probed the API, the database and both web hosts every 20 minutes since 2026-11-14 (`PRODUCTION_MONITOR_ENABLED=true`), and its delivery test was run that day; the owner's confirmation that the notice reached him is pending (Quizzivy/api#11). On the VPS Docker restarts a container that exits; nothing restarts one that hangs. `../setup/operations.md`. |
+| NFR-A05 | An outage is noticed by a person, not by a student: uptime check on `/healthz` and the SPA, with a notification | good practice | ✅ | A scheduled Worker on Cloudflare, `quizzivy-uptime`, asks the API's `/healthz` and the sign-in page of both web hosts every five minutes and mails the operator when one fails two rounds in a row, and again when it recovers (Quizzivy/infra, `docs/monitoring.md`). Its test mail reached the owner on 2026-11-14 (Quizzivy/api#11, closed). `production-monitor.yml` stays on as a second opinion; GitHub starts it only a few times a day. On the VPS Docker restarts a container that exits; nothing restarts one that hangs. |
 | NFR-A06 | Unexpected errors are collected with their request id so a student's "it broke" can be found | §9 error boundary | 🟡 | The boundary shows a copyable id and the server logs it; no error tracker aggregates them. On 2026-11-14 the owner took uptime monitoring only (Quizzivy/api#11): log alerts and error tracking are not planned. |
 | NFR-A07 | Secrets are provisioned once and checked before use; a missing one fails the deploy with a name | `deploy.md` | ✅ | "Check the token is present" steps |
 | NFR-A08 | Fitting the machine: 512 MB with Argon2 bounded; memory is raised only alongside the hash bound | R-13 | ✅ | `fly.toml` comment |
@@ -168,7 +168,7 @@ at the end says how much is covered and what the next round is.
 |---|---|---|---|---|
 | NFR-O01 | Structured JSON logs with a request id on every line; the id is returned in the error envelope and shown by the error boundary | overview §7, §9 | ✅ | `httpx/requestid.go`, `logging.go`, `ErrorBoundary.tsx` |
 | NFR-O02 | Health is observable: `/healthz` answers only when the database does | `router.go` | ✅ | `healthz(deps.DB)` |
-| NFR-O03 | A person is told when it breaks (see A05/A06) | — | 🟡 | The uptime monitor is on since 2026-11-14, and a failed backup on the box mails the operator (Quizzivy/infra#9). The owner's confirmation that both notices reach him is pending. `../setup/operations.md`. |
+| NFR-O03 | A person is told when it breaks (see A05/A06) | — | ✅ | The uptime probe mails the operator when the API or the web stops answering, and a failed backup on the box mails him too (Quizzivy/infra#9); both mails reached the owner on 2026-11-14. Who is told, and what to do then: Quizzivy/infra, `docs/monitoring.md`. |
 | NFR-O04 | The five dashboard counts and the sidebar counts are one round trip each, so the admin shell never fans out | §8, D-19 | ✅ | `GET /teacher/dashboard` |
 
 ---
@@ -202,7 +202,7 @@ stranger on the internet can do, or what is lost if the database is:
 1. NFR-S13 verify that audio plays under the deployed CSP: the owner's check (the board's smoke item). The headers were observed again on 2026-11-14, and the owner signed in under them that day.
 2. NFR-A04 done on 2026-11-14: the retention is recorded and one restore was rehearsed, on the VPS that replaced Neon.
 3. NFR-S05/S06 **T-5.2** — drive every public limit past its threshold, re-run the leak review.
-4. NFR-A05/A06/O03 — the availability monitor is on since 2026-11-14; the owner's confirmation that its notice reaches him is pending; error aggregation is not planned.
+4. NFR-A05/O03 done on 2026-11-14: an uptime probe on Cloudflare mails the owner, and its test mail reached him. NFR-A06: error aggregation is not planned.
 
 **Đợt 5 — Phase 5 proper, after the first release.** T-5.3 accessibility
 (NFR-F01–F03), T-5.4 bundle budgets (E05/E06), T-5.7 state audit (U01), T-5.8
