@@ -1442,6 +1442,7 @@ listed here matches the spec.
 | D-68 | `attempt_answer_criteria`'s criterion FK is composite, `(question_id, criterion_id)` onto `test_version_rubric_criteria (test_version_question_id, id)`, where plan 76 named `criterion_id` alone | The single-column FK would accept a grade that names another question's criterion; the composite one refuses it in the database, and its index follows the FK (§59). Chosen by the R6 migrations thread (T-R6.1b) |
 | D-69 | Media named inside a prompt or an explanation gets reference rows, `question_media_references` and the frozen `test_version_question_media_references` (`00154`), rather than the readers scanning `prompt_content` and `explanation_content` | "Used in", the delete refusal, the unreferenced sweep, staff readability and student reach all ask whether an asset is in use; a row with a composite FK onto `media_assets (id, kind)` and `RESTRICT` answers that in the database, and `field` keeps a prompt's media (signed while the paper is sat) apart from an explanation's (signed only through the gated result) (§60, D-064) |
 | D-70 | `refresh_tokens` gains `audience text NOT NULL DEFAULT 'any'`, checked against `any`, `student` and `staff` | A session belongs to the web host it was opened at (spec §5.8, web#51): the student host and the staff host share the API host, so the server keeps their sessions apart, and a token must be refused under the other host's cookie. The audience is a property of the session, so it lives on the token row and is copied to each successor, like `family_id`; a column on `users` could not hold two sessions of one account at two hosts. A constant default adds it without rewriting the table and keeps the previous release's insert working; every session that existed reads `any`, the audience of an origin that is neither host |
+| D-71 | `leads` holds personal data outside `users`: the name and the phone number of someone who has no account, given through the landing site's consultation form | A request for a call back is not an account, and making one for it would give a stranger a row in `users` and a place in every list of people. The row holds only what the form asked for, with the consent it carried (`privacy_notice_version`, `consented_at`) and how the centre handled it; no IP address and nothing about the device. It is kept 12 months (D18): the retention sweep deletes it as `quizzivy_maintenance`, which is granted `SELECT (id, created_at)` and `DELETE` and cannot read a name or a number, and an Admin deletes one sooner on request. The audit rows of an update and a delete hold the status change and the id only, because the audit log outlives the request |
 
 ---
 
@@ -1596,6 +1597,8 @@ the file it adds.
 | `00153_add_attempt_answer_bands.sql` | `attempt_answers.band`, `attempt_answer_criteria`; Down refuses while a band or a criterion grade exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-67 |
 | `00154_create_question_media_references.sql` | `question_media_references`, `test_version_question_media_references` (`UPDATE` revoked), both with `media_asset_binding_guard`; Down refuses while either holds a row | R6 (T-R6.2b), D-69, §60 |
 | `00155_add_refresh_tokens_audience.sql` | `refresh_tokens.audience` (`any`, `student`, `staff`), default `any` | web#51 (two web hosts), D-70 |
+| `00156_create_leads.sql` | `leads`, its checks, four indexes and `updated_at` trigger; `SELECT (id, created_at), DELETE` to `quizzivy_maintenance` | T-R11.6, D-71 |
+| `00157_add_organization_lead_recipients.sql` | `organization_settings.lead_recipients text[]`, default empty, at most five | T-R11.6 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2214,10 +2217,11 @@ carries only the column that moved), and their audit rows with a NULL actor.
 
 ## 28. Advisory-lock registry
 
-Every transaction advisory lock this codebase takes is in one of two
+Every transaction advisory lock this codebase takes is in one of three
 namespaces. `pg_advisory_xact_lock(73819, <key>)` holds the fixed keys of the
 table below: add a key here before it is used. `73820` holds one lock per
-media owner, described under the table.
+media owner and `73821` one per phone number of a consultation request, both
+described under the table.
 
 | Key | Holder | Serialises |
 |---|---|---|
@@ -2244,6 +2248,15 @@ same owner written in another letter case takes the same lock. T-R4.17b's
 replace takes this lock for the old file's owner, with the old file left out
 of the sum. An upload holds no other lock when it takes this one, and its
 only row is the one it inserts.
+
+**Namespace 73821: one phone number's consultation requests (T-R11.6).**
+`pg_advisory_xact_lock(73821, hashtext(<phone digits>))` serialises the
+requests the landing site's form sends for one number (§61). Every request
+takes it, then counts that number's stored requests of the last 24 hours, and
+a request under the cap of two is inserted in the same transaction, so
+requests sent together cannot all be stored. The key is a hash of what a
+visitor typed, which is why it has a namespace of its own. Two numbers whose
+hashes collide wait for each other and nothing else.
 
 ## 29. Roles and permissions (T-R2.1)
 
@@ -4298,3 +4311,36 @@ readers ("Used in", the delete refusal, the question count, the unreferenced swe
 treat a row exactly as they treat the question's attached media. The Down refuses while either table holds a row.
 Both tables carry `00113`'s `media_asset_binding_guard`, so no row can name a file the sweep removed, and the guard's
 coverage test now finds every `app` table with a `media_asset_id` column rather than a fixed list (QC-R6D-1).
+
+## 61. Consultation requests (T-R11.6, D18, D-71)
+
+`00156_create_leads.sql` adds `app.leads`, one row per request the landing site's form stored (`POST /public/leads`):
+
+- what the person typed: `full_name` (1 to 120 characters, trimmed), `phone_digits` (`^[0-9]{9,15}$`, the digits of the
+  number as typed, so one number written two ways is one value), `interests text[]` (at most five of `ielts`, `toeic`,
+  `communication`, `kids`, `business`), `course_for` (`self`, `child`, `company`), `call_time` (`any`, `morning`,
+  `afternoon`, `evening`) and `locale` (`vi`, `en`), each a `text` with a CHECK, as `notifications.kind` is (D-28);
+- the consent: `privacy_notice_version` and `consented_at`, both `NOT NULL`;
+- the handling: `status` (`new`, `contacted`, `closed`, default `new`), `note` (1 to 1,000 characters or `NULL`),
+  `handled_by` (→ `users`, `ON DELETE SET NULL`) and `handled_at`;
+- `created_at` and `updated_at`, the latter by `app.set_updated_at()`.
+
+There is no column for an IP address or for anything about the device, and a test pins the column list, so adding one
+takes a decision (D-71). Indexes: `(created_at DESC)` for the Admin's list and the sweep's cutoff,
+`(status, created_at DESC)` for a tab and the count of new requests, `(phone_digits, created_at DESC)` for the form's
+cap on repeats, and a partial one on `handled_by` for the cascade from `users`.
+
+The form's cap, two stored requests per number in 24 hours, is counted under a transaction-scoped advisory lock on the
+number (`pg_advisory_xact_lock(73821, hashtext(phone_digits))`, §28's registry), because concurrent requests would
+otherwise all count before any inserts. The request and one `lead_received` email per recipient are written in one
+transaction.
+
+`quizzivy_app` holds `SELECT`, `INSERT`, `UPDATE` and `DELETE` through `00009`'s default privileges. The retention
+sweep's fourth step deletes rows created more than 12 months ago as `quizzivy_maintenance`, in batches, and writes one
+`retention.leads_removed` audit row per batch that removed any; its grant is `SELECT (id, created_at), DELETE`
+(`00139`'s rule: the role reads nothing a command does not compare). The 12 months is D18's, not a setting, and the
+step runs under the sweep's one switch (O-R11.5).
+
+`00157_add_organization_lead_recipients.sql` adds `lead_recipients text[] NOT NULL DEFAULT '{}'` with
+`CHECK (cardinality(lead_recipients) <= 5)` to `app.organization_settings`: the addresses told of each new request,
+stored lower-case. The constant default needs no fill. Both files set `lock_timeout = '5s'` and have a working Down.

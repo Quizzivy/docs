@@ -239,7 +239,9 @@ server/            Go module `quizzivy`: a modular monolith
                      organization (the centre's one settings document: details, logos, sign-in
                      policy, retention), audit (the Admin console's read of the audit log) and
                      exports (an Admin's data export) are R5's; identity's and exports'
-                     application/worker/ is the runner cmd/import-worker drives
+                     application/worker/ is the runner cmd/import-worker drives;
+                     leads (the consultation requests of the landing site's form: the open
+                     operation, the Admin's list, the notice to the centre) is R11's
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited (gen/contract/ too)
 migrations/        goose, forward-only, 00001…
@@ -317,13 +319,27 @@ unit, integration and end-to-end in that order.
   through `IssueSession`; a new read or write of the session list filters by
   the request's audience.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
+  derived from `api/openapi.yaml`'s `security`. Twelve operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
   beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
   `GET /public/organization`, `GET /public/organization/logo`,
-  `POST /auth/set-password/check` and `POST /auth/set-password` — and the
-  list is pinned by `theOpenEleven` in `core/router/tests/auth_middleware_test.go`,
-  so a twelfth takes an argument.
+  `POST /auth/set-password/check`, `POST /auth/set-password` and the landing
+  site's consultation form, `POST /public/leads` — and the list is pinned by
+  `theOpenTwelve` in `core/router/tests/auth_middleware_test.go`, so a
+  thirteenth takes an argument.
+- **The landing site is not a web host** (spec §5.9). `quizzivy.com` is a
+  build of its own (`web/dist-landing`, from `web/src/features/landing`) with
+  no sign-in and no session. It asks the API for nothing when it opens, and
+  its two calls, `POST /public/leads` and `GET /public/status`, carry no
+  credentials. The API admits its origin (`LANDING_URL`, one origin in
+  production, a list only for the length of a test) to those two
+  operations and no other (`router.LandingOperations`), never with
+  credentials, and refuses to start when such an origin is in
+  `CORS_ALLOWED_ORIGINS` or is a web host. A new call from the landing site
+  is a new entry in that list and a line in its leak review. Its code imports
+  nothing of the app's entry (stores, the API client, the app's strings, the
+  router), which `web/tests/integration/landing-bundle.test.ts` holds, with
+  the Landing's first load under 200 KB.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 
