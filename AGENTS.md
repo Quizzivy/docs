@@ -331,9 +331,10 @@ unit, integration and end-to-end in that order.
   build of its own (`web/dist-landing`, from `web/src/features/landing`) with
   no sign-in and no session. It asks the API for nothing when it opens, and
   its two calls, `POST /public/leads` and `GET /public/status`, carry no
-  credentials. The API admits its origin (`LANDING_URL`) to those two
+  credentials. The API admits its origin (`LANDING_URL`, one origin in
+  production, a list only for the length of a test) to those two
   operations and no other (`router.LandingOperations`), never with
-  credentials, and refuses to start when that origin is in
+  credentials, and refuses to start when such an origin is in
   `CORS_ALLOWED_ORIGINS` or is a web host. A new call from the landing site
   is a new entry in that list and a line in its leak review. Its code imports
   nothing of the app's entry (stores, the API client, the app's strings, the
