@@ -730,6 +730,12 @@ pages: its English is the `en` string, and the `vi` string is ours to write.
 
 Design for longer Vietnamese strings; avoid fixed-width labels.
 
+The web's strings are split by surface, `web/src/lib/i18n/locales/{vi,en}/{common,auth,student,teacher,admin}.json`
+(T-R11.12a): a new key goes in the file of the route tree that renders it, and in `common` when the
+entry chunk or two audiences render it (a student's screen and a teacher's, say). A key only the
+teacher and the Admin console render goes in `teacher`. `tests/integration/i18n-surfaces.test.ts`
+names the file a misplaced key belongs in.
+
 ## Per-PR checklist
 
 - [ ] TypeScript strict passes; no `any` without a comment
