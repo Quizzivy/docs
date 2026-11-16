@@ -264,17 +264,19 @@ Worth deciding before Phase 3 rather than after.
 ---
 
 ### O-24 — Word import in production · before its pilot (W-22)
-**Decided 2026-09-25: on,** for `.docx` and text-layer PDF. `fly.toml` runs the
-worker as its own process group (`17-word-import.md` §1.40). Until then the
-default was off: `fly.toml` set no `IMPORT_*`, and the web showed no way in
-(#138).
+**Decided 2026-09-25: on,** for `.docx` and text-layer PDF. The previous host's
+config ran the worker as its own process group (`17-word-import.md` §1.40).
+Until then the default was off: that config set no `IMPORT_*`, and the web
+showed no way in (#138). (The previous host and database were retired on
+2026-11-16; production moved to a VPS on 2026-11-12.)
 
 What turning it on needed, and where each stands:
 
 - **Storage.** A private R2 bucket for imports, and an R2 token that reaches it.
   This is an account action.
-- **Cost.** A second Fly Machine for the worker. Since #143 the worker sleeps
-  until woken, so Neon's compute can still suspend while it runs.
+- **Cost.** A second machine on the previous host for the worker. Since #143
+  the worker sleeps until woken, so the previous database's compute could still
+  suspend while it ran.
 - **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
   D-08 are in §10:
   - D-07, capacity: still open. The quotas and concurrency ship at their
@@ -292,8 +294,8 @@ PDF needs nothing more: the worker reads it in its own WebAssembly sandbox
 `.doc` stays off either way. Its converter needs a Docker daemon, the production
 image has none, and hosting one means a separate privileged Machine. The steps
 are in `docs/setup/word-import-worker.md` § Production. `deployment_test.go` keeps
-the processing switch and the worker process together, and the deploy preflight
-refuses the switch as a Fly secret.
+the processing switch and the worker process together, and on the previous host
+the deploy preflight refused the switch as a secret.
 
 ---
 
@@ -676,7 +678,7 @@ an answer that differs becomes a task in the release it names.
 
 ### O-R5.1 — Resend plan and the daily budget · before the first import by email
 **Default:** Resend's free tier, 100 emails a day and 3,000 a month. `EMAIL_DAILY_LIMIT` is 100
-(`fly.toml`) and moves the excess to the next local midnight in `APP_TIMEZONE`
+(its default) and moves the excess to the next local midnight in `APP_TIMEZONE`
 (`docs/setup/operations.md`, "Outgoing email"). Thuong decides whether to upgrade before the first
 class-sized import by email, and raises `EMAIL_DAILY_LIMIT` with the plan.
 
@@ -892,7 +894,7 @@ For the record, so a later session does not reopen them:
 | **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
-| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
+| **O-16** API hosting | **A VPS in Ho Chi Minh City** since 2026-11-12, with PostgreSQL 18 on the box. SPA: Cloudflare Pages. Before that the previous host in Singapore, always warm, and the previous managed database there (PG 18.6) | `docs/setup/dns.md` |
 
 ### O-23 — Retention and requested anonymization · resolved 2026-09-22 · **superseded 2026-09-26**
 

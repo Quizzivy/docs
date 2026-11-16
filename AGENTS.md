@@ -14,7 +14,7 @@ adds what is specific to it.
 | Repository | Paths named in these rules |
 |---|---|
 | `Quizzivy/sdk` | `api/openapi.yaml` (the source), `api/testdata/`, `api/catalogs/`, `sdk/` |
-| `Quizzivy/api` | `server/`, `migrations/`, `seed/`, `docker/`, `docs/setup/`, the root `Makefile`, `Dockerfile`, `fly.toml` and `docker-compose.yml`; a pinned copy of `api/openapi.yaml` (`api/sdk-version`) |
+| `Quizzivy/api` | `server/`, `migrations/`, `seed/`, `docker/`, `docs/setup/`, the root `Makefile`, `Dockerfile` and `docker-compose.yml`; a pinned copy of `api/openapi.yaml` (`api/sdk-version`) |
 | `Quizzivy/web` | `web/`, `docs/design/` (the deck), `scripts/check-design-deck.mjs`; its CI and deploy are in `docs/ci.md` and `docs/deploy.md` |
 | `Quizzivy/docs` (this one) | `docs/quizzivy-spec-v0.3.md`, `docs/quizzivy-word-import-spec.md`, `docs/plan/`, `docs/team/`, the wiki build, the project sync |
 
@@ -59,7 +59,7 @@ this file describe the code as it is and name the release that changes them.
    (`docs/design/deck/` is the UI; spec §12 records the rules drawn from it,
    and `docs/design/gaps.md` the decided departures)
 3. `api/openapi.yaml` in `Quizzivy/sdk` — the API contract; spec §15 is documentation of it
-4. Neon `postgres-best-practices` skill — all DDL and SQL
+4. The `postgres-best-practices` skill — all DDL and SQL
 5. <https://www.postgresql.org/docs/18/index.html> — anything PG-version-specific
 
 Where 1 and 2 disagree, the spec wins and the plan gets corrected.
@@ -161,7 +161,8 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
   that header, so a client can prepend its own value and choose its own
   rate-limit bucket, defeating §6.5 on exactly the endpoints it protects. Name
   only a header the infrastructure overwrites: `CF-Connecting-IP` behind
-  Cloudflare, `Fly-Client-IP` on Fly. The server refuses to start otherwise.
+  Cloudflare's proxy, `X-Real-IP` set by Caddy on the VPS. The server refuses
+  to start otherwise.
 - **`unaccent()` is STABLE in PG18 — both the 1-arg and the 2-arg form.** It
   cannot go directly in an index expression. Use `app.immutable_unaccent()`,
   which pins the dictionary and asserts immutability. Changing the unaccent
@@ -383,7 +384,7 @@ time once: a type-level contract assertion was silently never evaluated.
   `/public/status` pass. It runs only when the path matches a route under some
   method (`routedOnly` in `router.go`): a path no route serves gets the
   envelope's `404 NOT_FOUND` without a read of the window snapshot, so scanners
-  cannot wake Neon through it. Inside the gate, `servedMethodOnly` answers a
+  cannot make it read the database. Inside the gate, `servedMethodOnly` answers a
   known path under a method it does not serve with `405 METHOD_NOT_ALLOWED` and
   `Allow`, and serves `HEAD` on an open `GET` as that `GET` without a body;
   `HEAD` on a `GET` that needs a token is the same 405.
@@ -747,8 +748,8 @@ names the file a misplaced key belongs in.
 - [ ] Each new test names the single production change that makes it fail and
       the existing test it is not a copy of; a Playwright test names the claim
       only a browser, or only a real server, can prove
-- [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the Neon
-      skill; migration file named
+- [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the
+      `postgres-best-practices` skill; migration file named
 - [ ] New public (unauthenticated) endpoint: rate-limited **and** leak-reviewed
       in this PR (§6.5)
 - [ ] `make gen` run and generated files committed if the contract changed

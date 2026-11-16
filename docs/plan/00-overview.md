@@ -46,7 +46,7 @@ only when a nullable column is tightened against existing production rows —
 realistically Phase 5 or post-v1. T-0.16 pins the behaviour with a test so it is
 proven rather than remembered.
 
-Where the Neon `postgres-best-practices` skill conflicts with the PG18 docs, the
+Where the `postgres-best-practices` skill conflicts with the PG18 docs, the
 docs win (§13.1). The one live conflict: the skill teaches the pre-18
 `ADD CHECK NOT VALID → VALIDATE → SET NOT NULL` dance. On PG18 use the native
 not-null form above.
@@ -125,9 +125,9 @@ though it is cross-*origin*.
 
 This matters because §5.2 specifies `SameSite=Lax`, and Lax cookies are never
 sent on cross-**site** `fetch`. On this topology they are sent, so §5.2 works
-verbatim. On genuinely cross-site origins (a Vercel frontend against a Fly.io
-backend, say) `/auth/refresh` would silently never authenticate. The topology is
-load-bearing; it is not a deployment detail to revisit casually.
+verbatim. On genuinely cross-site origins (a Vercel frontend against a backend on
+another site, say) `/auth/refresh` would silently never authenticate. The
+topology is load-bearing; it is not a deployment detail to revisit casually.
 
 - Refresh cookie: `httpOnly; Secure; SameSite=Lax; Path=/auth`, and **host-only**
   — no `Domain` attribute, so neither web host ever receives it. The API is at

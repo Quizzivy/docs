@@ -85,7 +85,6 @@ DOCS = [
     ("api", "docs/setup/operations.md", "Setup-Operations", "Production operations", "Setup and operations", None),
     ("api", "docs/setup/r2.md", "Setup-R2", "Cloudflare R2 bucket", "Setup and operations", None),
     ("api", "docs/setup/word-import-worker.md", "Setup-Word-Import-Worker", "Word import worker", "Setup and operations", None),
-    ("api", "docs/setup/rehearsals/r4-neon-rehearsal.md", "Setup-R4-Neon-Rehearsal", "R4 rehearsal on a Neon branch", "Setup and operations", None),
     ("web", "docs/ci.md", "Setup-Web-CI", "Web: CI", "Setup and operations", None),
     ("web", "docs/deploy.md", "Setup-Web-Deploy", "Web: deploying", "Setup and operations", None),
     ("web", "docs/design/README.md", "Design-Guide", "Design guide", "Design", None),

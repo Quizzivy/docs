@@ -247,8 +247,8 @@ engine, then the shell and the four pages, then release.
 **Size:** S
 **Done when:**
 - [ ] `release/phase-4.5` off `develop`, merged `--no-ff` to `main` with
-      Thuong's go, tagged `v0.4.0-phase-4.5`; Fly and Cloudflare Pages green;
-      `/healthz` and a student login checked on production
+      Thuong's go, tagged `v0.4.0-phase-4.5`; API deploy and Cloudflare Pages
+      green; `/healthz` and a student login checked on production
 - [ ] #87, #88 closed; #91 updated to leave only the papers back button
 - [ ] AGENTS.md records the student layout rule (one layout, detail mode by
       handle, 1024 breakpoint) and the within-section shuffle

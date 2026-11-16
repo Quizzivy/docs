@@ -4,7 +4,7 @@ Full DDL for every table in §13, expanded from the sketches. Every foreign key
 has a decided `ON DELETE`, every index has a reason, and every deviation from the
 §13.3 sketch is flagged with `[D-nn]` and justified in §12 of this document.
 
-Governed by the Neon `postgres-best-practices` skill (schema-design, indexing)
+Governed by the `postgres-best-practices` skill (schema-design, indexing)
 and the PostgreSQL 18 docs (§13.1). PG18-specific constructs cite their docs
 section. Verified behaviour is recorded in `00-overview.md` §1.
 
@@ -1986,7 +1986,7 @@ new column. Tests exercise both reversible empty schema and refusal with data.
 
 Migration: `00042_create_word_import_sources.sql`. The only PG18-specific construct
 introduced is built-in [`uuidv7()`](https://www.postgresql.org/docs/18/functions-uuid.html).
-The Neon schema/isolation guidance was applied: text checks for evolving states,
+The `postgres-best-practices` schema/isolation guidance was applied: text checks for evolving states,
 `bigint` revisions/byte counts, `timestamptz`, indexed foreign keys and explicit
 `ON DELETE RESTRICT`. No partitioning, learner-media link or audit privilege change.
 
@@ -2743,7 +2743,7 @@ unchanged. No representative query-plan or runtime performance claim is made.
 
 The combined candidate contains the full migration inventory 00001–00091.
 Its purpose-database app/migrate tests, the isolated 87/88 down/up rehearsal and
-the separate historical oversized-choice Neon inventory remain acceptance gates.
+the separate historical oversized-choice inventory on the previous database remain acceptance gates.
 A synthetic nine-option fixture is compatibility evidence, not a count of real
 historical rows.
 
@@ -4195,7 +4195,7 @@ and `max_words smallint` to `questions` and `test_version_questions` (D-63):
 Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, the pattern every populated table
 gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
 `VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
-every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
+every row. It keeps the two steps apart, so the rehearsal on a branch of the previous database times each, and it is already the shape a table too
 large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'` in its Up and
 its Down, so a lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
 `00103` does). The Downs refuse while either table holds a value, since an older binary would mark a choose-N

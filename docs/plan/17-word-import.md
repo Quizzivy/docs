@@ -980,8 +980,10 @@ hosting one means a separate privileged Machine.
 
 ### 1.36 A worker that lets the database sleep (SekiroKenjii/Quizzivy#143)
 
-The worker used to poll every two seconds, which would have kept Neon's compute
-awake around the clock once deployed. It now claims until the queue is empty,
+The worker used to poll every two seconds, which would have kept the previous
+database's compute awake around the clock once deployed. (The previous host
+and database were retired on 2026-11-16; production moved to a VPS on
+2026-11-12.) It now claims until the queue is empty,
 then sleeps until one of three things happens:
 
 - **A wake signal.** The API sends it after queueing a run (`IMPORT_WORKER_WAKE_URL`
@@ -1171,14 +1173,14 @@ four changes it depended on: the worker wake (§1.36), the R2 import store
   stays distroless and static. A local check ran the built image's worker
   against Postgres and MinIO: a real PDF reached review in about a second, at
   about 330 MiB resident.
-- **Fly.** `fly.toml` declares `[processes]` `app` and `worker`, scopes
-  `[http_service]` to `app`, and gives the worker a 1 GB `[[vm]]`. The import
-  settings are in `[env]`: bucket, work directory, the processing switch, the
-  wake URL and listener on the private network, and a six-hour idle poll. No new
-  secret is needed; the store reuses `S3_*`.
-- **Guards.** `deployment_test.go` boots both processes on `fly.toml` plus the
-  documented secrets. It also pins the service scope and the worker's memory,
-  and refuses import storage without the `S3_*` credentials.
+- **Deploy.** The previous host's config declared an `app` and a `worker`
+  process, scoped the HTTP service to `app`, and gave the worker a 1 GB machine.
+  The import settings were in its environment block: bucket, work directory,
+  the processing switch, the wake URL and listener on the private network, and
+  a six-hour idle poll. No new secret was needed; the store reuses `S3_*`.
+- **Guards.** `deployment_test.go` booted both processes on that config plus
+  the documented secrets. It also pinned the service scope and the worker's
+  memory, and refused import storage without the `S3_*` credentials.
 - **Still open.** D-07's capacity envelope. The quotas and the one-job,
   one-lease concurrency stay at their development defaults until measured with
   real use.
@@ -1499,8 +1501,8 @@ silently change audio policy into hard network authorization before playback.
 
 ### 4.4 Import persistence and identity
 
-Final names/DDL come after §4.3, following PostgreSQL 18 conventions and the Neon
-skill. Proposed responsibilities:
+Final names/DDL come after §4.3, following PostgreSQL 18 conventions and the
+`postgres-best-practices` skill. Proposed responsibilities:
 
 | Relations | Integrity and access expectations |
 | --- | --- |
