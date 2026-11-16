@@ -2174,6 +2174,12 @@ The chip's 1.5px border computes as 1px in this Chromium at device pixel ratio 1
 scripts do not load), so it was compared with its markup and script (`shc.gaps`, T 754, 2940).
 
 ### T-D4.14 — Builder: the Shared content dialog
+
+> **Removed in DG-231** (Quizzivy/web#24, v0.13.4, the owner's Q3 of 2026-11-12): the dialog,
+> the group row's shared-content line and its menu item are gone, and a group's material is
+> edited in its pane beside its questions (spec §8, the builder's route row). The record below
+> is what D4 built.
+
 **Depends on:** T-D4.2a, T-D4.2b. It builds on what R4 left on `develop`: the builder (T-R4.31a, T-R4.31b), the group editor (T-R4.34), `useMediaUpload` (T-R4.35), the content editor (T-R4.63) and `AudioPolicyPanel` with "Choose from Media" (T-R4.65)
 **Touches:** `web/src/features/tests/components/{SharedContentDialog.tsx (new),OutlineGroupRow.tsx,BuilderGroupPane.tsx}`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx`, `web/src/features/question-groups/{model.ts,sharedContent.ts (new),useGroupEditor.ts}` (the last only if `saveNow` must hand its outcome to the dialog; its queue, its base and its recovery writes are not changed), `web/src/features/question-groups/components/{GapBindings,MaterialContent,MaterialAssetDialog}.tsx` (reused, not restyled again), `web/src/features/media/components/AssetLibraryDialog.tsx` (an initial kind), locales, `web/tests/units/builder/shared-content-dialog.test.tsx` (new), `web/tests/units/question-groups/editor-save.test.tsx`, `web/tests/e2e/{builder-groups.live.spec.ts,builder-group-recovery.spec.ts}`
 **Reuses:** `FormDialog`, `Segmented`, `ContentEditor` (profile `document`), `GapBindings`, `AudioPolicyPanel`, `AssetLibraryDialog`, `useMediaUpload`, `materialTransaction`, and the group's one writer: `useGroupEditor` behind `GroupRecoveryGate`, with `recovery.ts`'s draft

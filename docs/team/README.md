@@ -126,7 +126,7 @@ Repository state:        working directory, branch, base revision
   the Tech Lead first.
 - **Coordinated changes:** `api/openapi.yaml` and the generated code, migrations and
   their numbers, shared interfaces, `go.mod` and `pnpm-lock.yaml`, CI configuration, shared
-  fixtures, and the locale files (`en.json`, `vi.json`). The Tech Lead serializes them. A
+  fixtures, and the locale files (`web/src/lib/i18n/locales/`). The Tech Lead serializes them. A
   migration is numbered before its PR runs CI, because goose refuses `NNNNN_`: the next
   number after the highest on the integration branch, renumbered by its owner if another
   PR merges first. `senior_swe_platform` keeps the register.
