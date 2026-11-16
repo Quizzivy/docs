@@ -1986,7 +1986,8 @@ would make `recordGroupAudioPlay` refuse, which §11.4 forbids).
 - [x] `74-r4.md`'s open item ""Students can pause", "Matching" and "Not given"" and 70 §10's
       item on the content editor say that "Students can pause" is built: both name
       `allowPause`, this task and DG-183. DG-111's row in `gaps.md` says the same.
-- [ ] Rehearsed on a Neon branch of production; the timing goes in the release PR.
+- [ ] Rehearsed on a branch of production on the previous database; the timing goes in the release
+      PR.
 
 **As built:** the contract is `AudioPolicy.allowPause` (optional) and `StudentAudioPolicy` (all
 four required), which replaces `AudioPolicy` in `StudentQuestion.audio` and
@@ -2017,7 +2018,7 @@ listening question 30 cannot be paused, so T-D4.9 has one to compare. The import
 audio, so its default is the create default and has no code of its own. Spec v0.90 changes §7,
 §11.1, §13 and §15; `20-data-model.md` takes D-42 and §44; `74-r4.md`, 70 §10, `40-open-items.md`
 (O-R4.8) and DG-111's row in `gaps.md` name `allowPause`, T-D4.13 and DG-183 and say the engine and
-the switch follow. The Neon rehearsal is not done here: it belongs to T-D4.40's migration
+the switch follow. The branch rehearsal is not done here: it belongs to T-D4.40's migration
 rehearsal, with the other D4 migrations. No operation was added, `x-permission` is unchanged and
 `permissions.golden` and the isolation suite are untouched.
 
@@ -3025,8 +3026,8 @@ every prompt's schema parses the deck's demo arrays (the shapes the UI draws).
 - [x] `architecture_test.go` allows `platform/anthropic` to import the SDK and nothing else to;
       `modules/ai` imports no platform package but through its ports.
 - [x] `.env.example` gains the nine names with no values and a two-line comment; `operations.md`
-      says how the key is set on Fly, rotated (set the new key, deploy), and that the prices are
-      re-read at start-up when the provider's list price changes.
+      says how the key is set on the previous host, rotated (set the new key, deploy), and that
+      the prices are re-read at start-up when the provider's list price changes.
 - [x] Unit tests against `httptest`: a happy completion with usage, a 429 then a 200, a 5xx three
       times then the typed error, a refusal, invalid JSON, a timeout; the nil adapter (its 501
       is T-D4.32's, with the first operation).
@@ -3126,7 +3127,8 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       paused teacher is refused before any lock; the month rolls over in `APP_TIMEZONE`; the
       ledger refuses an `UPDATE` as the app role; a rule change rewrites non-custom allowances
       only; approve raises the allowance and writes the audit row.
-- [ ] Rehearsed on a Neon branch of production; the timings go in the release PR.
+- [ ] Rehearsed on a branch of production on the previous database; the timings go in the release
+      PR.
 
 **As built:** Six migrations, `00118` to `00123`, one table each, none `NO TRANSACTION`, each Down a
 `DROP TABLE`; `20-data-model.md` §46 and D-44 to D-49 record them, with the reasoning. The two
@@ -3186,7 +3188,7 @@ reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zon
 rule (`access.CanActOn`) in this task, which T-D4.32 applies to the application commands; the
 console, as System, is not asked.
 
-Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
+Not done here: the branch rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
 production and puts the timings in the release pull request).
 
 ### T-D4.32 — The teacher operations and the contract
@@ -3988,7 +3990,8 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 - **Checks.** `node scripts/check-design-deck.mjs` ("Deck OK: 20 files, 8 pages") because
   `gaps.md` is under `docs/design/`; the CI planner's tests do not read these files.
 - **Not done here.** The migration rehearsal that step 6 of the order of work pairs with this task
-  needs a Neon branch of production. It stays in the release checklist, with T-D4.31's last box.
+  needs a branch of production on the previous database. It stays in the release checklist, with
+  T-D4.31's last box.
 
 ---
 
@@ -4167,9 +4170,9 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
 - [x] `75-r5.md` names the release R5 follows: under "Schema changes", "the v0.10.0 binary
       keeps inserting" reads "the D4 binary (v0.11.0)", and T-R5.1's "Depends on" reads "D4
       (v0.11.0) in production". The steps are still the ones R4 owes; D4 adds none.
-- [ ] `ANTHROPIC_API_KEY` and the tier variables are set as Fly secrets before the API deploys
-      (Thuong, `docs/setup/operations.md`); without them the release is still complete and the
-      AI is off.
+- [ ] `ANTHROPIC_API_KEY` and the tier variables are set as secrets on the previous host before the
+      API deploys (Thuong, `docs/setup/operations.md`); without them the release is still complete
+      and the AI is off.
 
 ---
 
@@ -4200,8 +4203,9 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
       walks `StudentAudioPolicy`; no AI response reaches a student payload; `operations_test.go`'s
       minimisation cases pass; the key appears in no log of the rehearsal.
 - [x] Migrations: T-D4.13's four, T-D4.31's six, T-D4.32's one and T-D4.33's one are rehearsed
-      on a Neon branch of production. The timings and the up/down/up run go in the release PR.
-- [x] Credits: on the Neon branch, a deliberate reservation past the pool is refused by the
+      on a branch of production on the previous database. The timings and the up/down/up run go in
+      the release PR.
+- [x] Credits: on that branch, a deliberate reservation past the pool is refused by the
       constraint; `ai_settings` reads 200,000 and 20,000; the maintenance command's `status`
       prints the month.
 - [x] Rolling deploy: the API deploys first, then Pages. A tab of v0.10.0 keeps saving a
@@ -4237,7 +4241,8 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
         projector
 - [ ] Deploy and smoke:
       - Thuong's go, then `release/0.11.0` → `main`
-      - `ANTHROPIC_API_KEY` and the tier variables set as Fly secrets (or deliberately left unset:
+      - `ANTHROPIC_API_KEY` and the tier variables set as secrets on the previous host (or
+        deliberately left unset:
         the AI is then off and the release is still whole)
       - deploy the API (the release command migrates), then Pages
       - smoke `/healthz`, `/livez`; `/version.json` reads 0.11.0; a sign-in as an admin and as
@@ -4278,10 +4283,10 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
   - **A student mid-test:** one major (a double click answered two cloze gaps), fixed in #601.
   - A minor from listening is left as a rollback note in `docs/setup/deploy.md`, "Rolling v0.11.0 back":
     00114's CHECK against v0.10.1's update.
-- **Migrations and credits.** The Neon branch of production was rehearsed 113 → 125 → 113 → 125, as
-  "Rolling out v0.11.0" records, and the branch was deleted. `cmd/maintenance ai-credits status` was not
-  run there: the sandbox reaches Postgres only over Neon's HTTPS endpoint. It runs after the deploy, in
-  the smoke.
+- **Migrations and credits.** The branch of production on the previous database was rehearsed 113
+  → 125 → 113 → 125, as "Rolling out v0.11.0" records, and the branch was deleted.
+  `cmd/maintenance ai-credits status` was not run there: the sandbox reaches Postgres only over
+  the previous database's HTTPS endpoint. It runs after the deploy, in the smoke.
 - **Exam window.** On the branch (production at 19:17 UTC), no assignment is open or opens in the next
   seven days.
 
@@ -4771,7 +4776,7 @@ each with its reason. Item 8 came from T-D4.10a, items 9 and 10 from the Tech Le
    (at most five: up to four tagging calls and one that judges duplicates) under a 45-second context
    (`Service.CleanupBudget`), and ends with one `Finish`. The settlement and the read of what is left
    share one 10-second deadline of their own, so a pass ends inside 55 seconds, under the 60-second
-   idle timeout of Fly's proxy, which would answer 502 for a request that was already settled. Tags are asked of the first 200 questions that have none (the contract's own
+   idle timeout of the previous host's proxy, which would answer 502 for a request that was already settled. Tags are asked of the first 200 questions that have none (the contract's own
    `maxItems`), 50 to a call so each answer fits `MaxTokens` 3,000, and each call carries the 30 tags
    the bank uses most so a suggestion reuses them. A tagging call sends only its 50 questions.
 

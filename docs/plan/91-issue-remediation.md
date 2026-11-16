@@ -19,9 +19,10 @@ claims are summarized in [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/
   audit log; anonymize students only on a manual request; do not automatically
   erase disabled accounts. Production deletion is a separate, explicit
   maintenance operation.
-- The user has no Neon CLI access or alerting service configured. Prepare
-  reproducible operational tooling and documentation for #79/#81, and report
-  external configuration or production verification still required.
+- The user has no CLI access to the previous database and no alerting service
+  configured. Prepare reproducible operational tooling and documentation for
+  #79/#81, and report external configuration or production verification still
+  required.
 
 ## Work checklist
 
@@ -34,8 +35,9 @@ claims are summarized in [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/
 - [x] #78 headers, request limits and deployment checks.
 - [x] #80 mockup checks in CI.
 - [x] #82 maintenance tooling and retention documentation.
-- [x] #79 local restore drill/tooling and #81 opt-in monitor. Neon production
-      PITR and delivered notifications remain pending external setup.
+- [x] #79 local restore drill/tooling and #81 opt-in monitor. Production PITR
+      on the previous database and delivered notifications remain pending
+      external setup.
 - [x] Full local tests, build, lint and generated contract verification; PR #98
       repeats the full checks in CI. Evidence and remaining production acceptance
       are recorded in [PR #98](https://github.com/SekiroKenjii/Quizzivy/pull/98)

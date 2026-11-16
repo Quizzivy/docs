@@ -45,7 +45,8 @@ start at [README.md](README.md) "Resuming".
     on the merged base, `pnpm e2e:live` 20 of 20 with an import worker; the five canaries are
     untouched since the cut.
 - **The release** is `release/0.13.0` → `main`: the web version 0.13.0, spec 0.119 ("Changes
-  since v0.118"), `docs/setup/deploy.md`'s "Rolling out v0.13.0 (R6)" with its Neon rehearsal and
+  since v0.118"), `docs/setup/deploy.md`'s "Rolling out v0.13.0 (R6)" with its rehearsal on a
+  branch of the previous database (retired, with the previous host, on 2026-11-16) and
   rollback, `76-r6.md`'s checklist, and this checkpoint. Its release notes, vi first, say "Tự
   luận" is now "Trả lời ngắn" (D-066).
 - **v0.13.0** shipped on 2026-10-22 23:41 UTC: `main` at `91524661` (#815), back-merged to
@@ -61,8 +62,8 @@ start at [README.md](README.md) "Resuming".
   - `v0.13.1` on `c982def9`;
   - `v0.13.2` on `main`'s merge of the v0.13.2 release PR, after the deploy.
 - **Waiting on the user, for v0.13.0:**
-  - The Neon-branch rehearsal of 00145 to 00154 with its timings, 00153's above all
-    (`deploy.md`, "Rehearsing v0.13.0 on a Neon branch"); deferred to release time on
+  - The rehearsal of 00145 to 00154 on a branch of the previous database, with its timings,
+    00153's above all (`deploy.md`, the v0.13.0 rehearsal); deferred to release time on
     2026-10-22.
   - The exam-window and import check, and a look for long transactions, before the merge.
   - The go, the deploy and the smoke, the back-merge and the tags.
@@ -136,9 +137,9 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
   (#420, #421).
 - **Merged on 2026-10-11:** the ledger (#488) and the audit ticks (#489); F-37 (#483,
   00103); 18 (#484, 00104); 20 (#481, F-53 option B); 45b (#490); QA-F1-2 (#492); 49 B
-  (#486, 00105) and 49 C (#491, 00106), after the user's Neon rehearsal passed; 43 (#485);
-  F-59 (#494); DG-170's server half (#495); 26 (#493); 44 (#496); and the closed-assignment
-  guard (#497).
+  (#486, 00105) and 49 C (#491, 00106), after the user's rehearsal on the previous database
+  passed; 43 (#485); F-59 (#494); DG-170's server half (#495); 26 (#493); 44 (#496); and the
+  closed-assignment guard (#497).
 - **Merged later on 2026-10-11 and on 2026-10-12:** DG-170's web half (#499), F-63 (#500),
   the ledger (#501), the notifications plan-test fixture (#502), 41 (#498), 42 (#503), the
   T-35 / VER-26 / VER-41 follow-ups (#505), F-24 (#506), the scratch-database drop (#508),
@@ -222,9 +223,9 @@ That settles the decisions owed on 2026-10-07:
    `verification.md` §9 are the working rule until the user says otherwise.
 
 Still the user's: the go for every merge to `main`, the production steps of the release
-checklist (Cloudflare, Fly, Neon, the smoke tests on real devices), reading production
-logs (T-R4.49 needs seven days of `legacy_admin_path` counts before the `/admin` alias goes),
-and any reversal of the defaults above.
+checklist (Cloudflare, the previous host and database, the smoke tests on real devices),
+reading production logs (T-R4.49 needs seven days of `legacy_admin_path` counts before the
+`/admin` alias goes), and any reversal of the defaults above.
 
 ## Decisions
 
@@ -369,10 +370,11 @@ and any reversal of the defaults above.
   per console: `listNotifications`, `markNotificationsRead`, `getTeacherSummary` and
   `getMySummary` take an optional `audience` (`teacher` or `student`), and `KindsOf` maps
   five teacher kinds and four student kinds (spec v0.80, data model §34).
-- **T-38 (2026-10-11).** Production checks run read-only: Fly status and releases only, and
-  a Neon rehearsal only on a throwaway branch, deleted afterwards, never the production
-  endpoint. No token or DSN is printed or pasted in chat. The cloud container cannot resolve
-  Neon's endpoint, so the user ran the rehearsal for #486 and #491 locally: PASS.
+- **T-38 (2026-10-11).** Production checks run read-only: the previous host's status and
+  releases only, and a rehearsal only on a throwaway branch of the previous database, deleted
+  afterwards, never the production endpoint. No token or DSN is printed or pasted in chat. The
+  cloud container cannot resolve the previous database's endpoint, so the user ran the
+  rehearsal for #486 and #491 locally: PASS.
 - **T-39 (2026-10-11).** A `PATCH` that would reopen a closed assignment answers 409
   `ASSIGNMENT_CLOSED` (#497); a later close on an assignment closed early stays allowed.
   `closeNow` belongs to `PATCH`: a create ignores it, and with the window opening after now
@@ -481,7 +483,7 @@ and any reversal of the defaults above.
 | F-65 | `seed/08` held one import run `running` on a ten-year lease, which took the worker's only slot: a local worker at the default limit queued every new import, and #513's live job needed a limit of 2. | platform | on #518: the run is `queued` ten years out |
 | T48-1 | #515's rewritten wizard zone case clicked a stepper nine times and timed out at CI's 5 s (6.5 s). | Tech Lead | fixed on #515: two steps, 2.6 s |
 | INC-5 | The v0.10.0 deploy (run 38238171020) crash-looped the API machine: "IMPORT_WORK_DIR must be a private directory with mode 0700". The image ships `/home/nonroot/imports` through `COPY`, which lands at 0755, and `MkdirAll` leaves an existing directory's mode alone; every test made the directory itself. Migrations 00080 to 00106 had applied; the worker started; Pages was skipped and kept v0.9.0. The API was down from about 10:45 UTC. | Tech Lead | fixed: hotfix #532 (`e06511fc`), `wiring.PrivateWorkDir` narrows the image's directory at start-up; F-72 |
-| F-72 | No CI job starts the production image, so a start-up check that depends on the image's file system passes every test and fails only on Fly (INC-5). A job that builds the `Dockerfile` and runs `/app/api` and `/app/import-worker` as `nonroot` until they listen, or refuse on configuration, would have caught it. | platform | open: before D4's first deploy |
+| F-72 | No CI job starts the production image, so a start-up check that depends on the image's file system passes every test and fails only on the previous host (INC-5). A job that builds the `Dockerfile` and runs `/app/api` and `/app/import-worker` as `nonroot` until they listen, or refuse on configuration, would have caught it. | platform | open: before D4's first deploy |
 
 ## Reviews
 

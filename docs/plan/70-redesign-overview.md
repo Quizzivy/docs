@@ -30,7 +30,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D13 | Admin rows | The People and System rows may be granted to any role, under the **subset rule** (§4.3). |
 | D14 | Assistant | Attached per class (class staff); hidden from role pickers until the deck draws it (DG-04). |
 | D15 | Credentials by email | A one-time set-password link valid 24 hours. A password never sits in an inbox. |
-| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never on Fly. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. As built (T-R5.17a): the schedule is `0 20 * * *` UTC; a manual run is a dry run unless its `apply` input is ticked, and `RETENTION_SWEEP_ENABLED` is a repository variable. `scripts/provision-db.sh` creates the role (`LOGIN`, `CONNECTION LIMIT 2`, no `CREATEDB` or `CREATEROLE`); `00139_grant_maintenance_role.sql` fails without it and grants it, column by column, what the commands read and write, never `UPDATE` or `DELETE` on `audit_log`, and adds the trigger `users_maintenance_guard`, which lets the role update an account only to leave it anonymised; `privileges_test.go` pins the grants. A run's audit entries have no actor and carry `databaseRole`. |
+| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never with the API. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. As built (T-R5.17a): the schedule is `0 20 * * *` UTC; a manual run is a dry run unless its `apply` input is ticked, and `RETENTION_SWEEP_ENABLED` is a repository variable. `scripts/provision-db.sh` creates the role (`LOGIN`, `CONNECTION LIMIT 2`, no `CREATEDB` or `CREATEROLE`); `00139_grant_maintenance_role.sql` fails without it and grants it, column by column, what the commands read and write, never `UPDATE` or `DELETE` on `audit_log`, and adds the trigger `users_maintenance_guard`, which lets the role update an account only to leave it anonymised; `privileges_test.go` pins the grants. A run's audit entries have no actor and carry `databaseRole`. |
 | D17 | Messages | Direct messages are readable by their participants only. Admins see counts, never contents. |
 | D18 | Leads | A consent checkbox and a privacy notice (Decree 13/2023); leads kept 12 months. |
 
@@ -222,8 +222,8 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   10-second in-process cache keyed by user (10,000 entries, least recently used out first),
   with each role's grants cached by `(role_id, revision)`. A write forgets the entry at once on
   the machine that made it, so a matrix edit, role change or disable applies on that machine's
-  next request and within 10 seconds on any other, and Neon is not woken per poll. An unknown
-  or disabled user, or a token whose epoch is older than the user's, gets 401; an unmet
+  next request and within 10 seconds on any other, and the database is not queried per poll. An
+  unknown or disabled user, or a token whose epoch is older than the user's, gets 401; an unmet
   requirement gets 403.
 - **Ending access is one rule.** Every password reset (single, bulk, reset-link issue and link
   use), disable, sign-out-everywhere and role change does three things in one command: it
@@ -330,7 +330,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | T-R0.5 | This file and `71-r1.md` … `81-r11.md` | this PR |
 | T-R0.6 | Design-gap register `docs/design/gaps.md` | PR #153 |
 | T-R0.7 | Comment sweep: ~108 web files cite old board ids; formatting-only PR | |
-| T-R0.8 | External setup (Thuong): Resend domain DNS; a second Google OAuth redirect URI for the apex; `JOIN_CODE_KEY` and `SECRETS_KEY` as Fly secrets; `.env.example`. Later, in each release's checklist: `quizzivy_maintenance` provisioned on Neon and the GitHub environment `production-maintenance` (R5); `RESEND_WEBHOOK_SECRET` as a Fly secret (R7) | |
+| T-R0.8 | External setup (Thuong): Resend domain DNS; a second Google OAuth redirect URI for the apex; `JOIN_CODE_KEY` and `SECRETS_KEY` as secrets on the previous host; `.env.example`. Later, in each release's checklist: `quizzivy_maintenance` provisioned on the previous database and the GitHub environment `production-maintenance` (R5); `RESEND_WEBHOOK_SECRET` as a secret on the previous host (R7) | |
 | T-R0.9 | Refresh the agent memory notes that point at the old deck | |
 
 ## 8. Verification, every release
@@ -348,8 +348,8 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
    student payloads carry no `isCorrect`, `sampleAnswer`, `acceptedAnswers` or `transcript` in
    every release that adds or changes an `/app/*` or `/me/*` response (R3, R4, D4, R6, R7, R8,
    R9, R10), rate-limit tests for every new public operation.
-4. Release: migrations rehearsed on a Neon branch; deploy API then Pages; smoke `/healthz`,
-   `/livez` and a sign-in per role; roll forward only; release notes; tag.
+4. Release: migrations rehearsed on a copy of the production database; deploy API then Pages;
+   smoke `/healthz`, `/livez` and a sign-in per role; roll forward only; release notes; tag.
 
 ## 9. Risks
 
@@ -361,7 +361,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
 | PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logged `legacy_admin_path` and goes in v0.12.0 (T-R2.8; removed by T-R5.36, #749, after seven days of production logs held none); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
 | PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so. R5 removed the job and the legacy lookup (T-R5.1, #750) |
-| PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
+| PR-7 | Polling keeps the previous database awake (it was retired on 2026-11-16; production moved to a VPS on 2026-11-12) | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |
 | PR-10 | Scope (eleven releases) outruns one developer | Each release is shippable alone; later modules can slip without leaving a console incoherent |

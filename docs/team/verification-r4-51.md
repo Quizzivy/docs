@@ -275,7 +275,7 @@ The deck's sixteen 24 px headings that set no line-height are Dashboard, Assignm
 - **Ten clean runs in three sets** (`out/coldtimer.json`, `coldtimer-set1.json`, `coldtimer-set2-partial.json`; the first set's first two runs are discarded, QA-51-7; the second set stopped at the import quota of ten, `IMPORT_ACTOR_COUNT`, and was rerun with it raised in the scratch API): the last set **2386, 2347, 2369, 2332, 2334 ms**; the first set's three valid runs 2383, 2342, 2419 ms; the interrupted set's two 2409, 2371 ms. Range 2.33 to 2.42 s, maximum **2.42 s**.
 - **Where the time goes:** the run's `completed_at - created_at` is 76 to 96 ms and the worker logs 67 to 85 ms for the pipeline; the page notices on its next 2 s poll (`IMPORT_POLL_MS`), so about 2.3 s is the poll and the render.
 - **Result:** 10 s or less, so the footer takes the deck's sentence (QA-51-8) and DG-16 records the number.
-- **What it does not cover:** a stopped Fly machine that must boot before it hears the wake (not reproducible here), the converter and Docker (a pasted text needs neither), and any machine but this 4-core container. `verification.md` §9.3 proposed five runs and a maximum; this is that.
+- **What it does not cover:** a stopped machine on the previous host that must boot before it hears the wake (not reproducible here), the converter and Docker (a pasted text needs neither), and any machine but this 4-core container. `verification.md` §9.3 proposed five runs and a maximum; this is that.
 
 ## 8. Shell behaviour checked by hand-driven script
 
@@ -318,7 +318,7 @@ The deck's sixteen 24 px headings that set no line-height are Dashboard, Assignm
 | Media objects: image tiles, audio, `seed/README.md`'s copy step | would overwrite keys other agents' databases share in the one bucket |
 | Real scrollbars at every width (`docscroll.mjs` ran at five viewports, light only) | the cause is theme-independent |
 | The retest of QA-51-7 at #518, and any finding at `604d172e` | the candidate is `86f21905`; no file a finding points at changed |
-| Neon, production, real devices | out of scope; Thuong |
+| The previous database, production, real devices | out of scope; Thuong |
 
 ## 11. The weakness that let QA-51-1 through, and one change
 
@@ -544,7 +544,7 @@ Log of the API over the retest (four instances, 8,996 `http` lines): 6,349 x 200
 | The 1024 width of the Imports history and the 1263/1264 boundary pairs | the first pass measured them; #523 and #524 did not touch the layout switch, and this pass was asked for 360, 768, 1280 and 1440 |
 | A cancelled import's pill (QA-51-2) | the seed has no cancelled import |
 | The converter, `.docx` and `.pdf` through the worker | as in section 10 |
-| Neon, production, real devices | out of scope |
+| The previous database, production, real devices | out of scope |
 
 ### 14.12 Process
 

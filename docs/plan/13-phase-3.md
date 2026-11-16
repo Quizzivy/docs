@@ -29,7 +29,7 @@ countdown/cancellation proposal.
       different test is rejected (D-17)
 - [ ] Test: `constraints_test.go` — `closes_at <= opens_at` is rejected
 - [ ] Test: `constraints_test.go` — a new row's integrity defaults equal §10.3
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -73,7 +73,7 @@ countdown/cancellation proposal.
       (assignment, student) is rejected by `attempts_one_live`
 - [ ] Test: `constraints_test.go` — `deadline_at <= started_at` is rejected;
       status `voided` without a reason is rejected
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -124,7 +124,7 @@ countdown/cancellation proposal.
       finds no `isCorrect`, `sampleAnswer`, `acceptedAnswers` or `transcript` at
       **any depth**. This is E2E 9's unit-level twin; §13.5 requires it
 - [ ] Test: `attempts/payload_test.go` — another student's attempt is 403
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -201,7 +201,7 @@ countdown/cancellation proposal.
       returns 200
 - [ ] Test: `db/grants_test.go` — connected as `quizzivy_app`, an `UPDATE` and a
       `DELETE` against `attempt_events` and `audit_log` are both refused
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -424,8 +424,8 @@ countdown/cancellation proposal.
       cannot be. The full E2E 2 still lands in Phase 4
 - [x] Phase 1 and 2 E2Es still pass
 - [x] `release/phase-3` merges to `main` and back to `develop`; deployable (§16)
-      — released as `v0.2.0-phase-3` (main 0e8f2a0). The Fly release command
-      ran the migrations against production before the new API took traffic;
-      the Pages publish failed once with Cloudflare's "Unknown internal error"
-      and succeeded on a re-run, which is the hiccup deploy.yml is written to
-      tolerate.
+      — released as `v0.2.0-phase-3` (main 0e8f2a0). The previous host's release
+      command ran the migrations against production before the new API took
+      traffic; the Pages publish failed once with Cloudflare's "Unknown internal
+      error" and succeeded on a re-run, which is the hiccup deploy.yml is
+      written to tolerate.

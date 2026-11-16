@@ -6,7 +6,7 @@
 **Exit criteria — one corrected.** §16 asks for "no seq scans on hot paths".
 That is not achievable and not desirable at this scale: with ~50 students the
 attempts tables hold a few thousand rows across a handful of pages, and
-PostgreSQL will correctly prefer a sequential scan. The Neon indexing reference
+PostgreSQL will correctly prefer a sequential scan. The skill's indexing reference
 says the same — an index does not help when a query matches more than 10–20% of
 a table. Forcing index usage here would mean adding indexes that cost writes and
 return nothing. **Replaced by T-5.5:** a p95 latency budget measured against
