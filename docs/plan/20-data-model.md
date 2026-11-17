@@ -1622,6 +1622,7 @@ the file it adds.
 | `00170_widen_notification_preference_events.sql` | `notification_preferences_event_check` admits `summary.weekly` | T-R7.13 |
 | `00171_reset_pre_r7_notification_emails.sql` | data only: the deck's email for the switches saved before R7 | T-R7.13 |
 | `00172_create_email_suppressions.sql` | `email_suppressions`; `UPDATE` revoked from the app role | T-R7.15, D-79 |
+| `00173_grant_maintenance_decision_email.sql` | `quizzivy_maintenance` may queue the credit decision email: column grants on `notification_preferences`, `users` and `email_outbox`, `UPDATE` on `ai_credit_requests` narrowed to three columns, the `email_outbox_maintenance_guard` trigger | T-R7.23, O-R7.19, D-80 |
 
 Notes on migration mechanics (§13.7):
 
