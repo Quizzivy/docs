@@ -164,7 +164,8 @@ Asked by the owner on 2026-11-17, while F1 was being planned, and built on its o
 merged. Recorded here because the break depends on it: the ✕ and any navigation away from the
 paper leave the fullscreen the engine asked for, a submit of any kind already does, Home's
 "Tiếp tục làm bài" enters fullscreen again when the paper asks for it, and an intro start that the
-server refuses leaves the fullscreen its click entered.
+server refuses leaves the fullscreen its click entered. Built in Quizzivy/web#144, with its spec
+lines in Quizzivy/docs#27.
 
 ## B. Contract and server
 
