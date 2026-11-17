@@ -454,7 +454,7 @@ them locally, or in a test, use two ports of `localhost`, never `my.localhost`
 and `portal.localhost`, which are other sites than `localhost` (spec §5.8; the
 web's E2E serves one build on 4173, 4174 and 4175).
 
-Six local-dev facts worth not rediscovering:
+Seven local-dev facts worth not rediscovering:
 
 - **The `postgres:18` image changed its data layout.** The volume mounts at
   `/var/lib/postgresql`, and the image puts data in a version subdirectory

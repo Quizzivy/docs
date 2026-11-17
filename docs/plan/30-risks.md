@@ -63,12 +63,15 @@ PR-7 asks:
 **The measurement.** Plan 77 measured the previous database's compute hours for the week after the
 release (NFR-A10). That database was retired on 2026-11-16, and PostgreSQL on the VPS does not
 suspend, so there is no compute-hour figure to take and the measurement is dropped. What a release
-week can still show is the load itself: the API's request log counts the thread polls
-(`GET /teacher/messages/*` and `/app/messages/*` with `after`) and the summaries per signed-in user,
-and the scheduler logs `notification schedule wrote emails=… in_app=…` after each run that wrote
-anything. A poll that keeps running for a user who has left (more than one request per 10 seconds
-per open thread, or polls past ten idle minutes) is the regression to look for. No threshold is set;
-Thuong decides whether the week's figures are wanted.
+week can still show is the load itself, as far as the logs hold it. The API's request log
+(`httpx.Logging`, one JSON `http` line per request) carries the method, the path, the status, the
+duration and the request ID, and nothing else. So it gives counts per hour of `/teacher/messages/*`,
+`/app/messages/*`, `/teacher/summary` and `/me/summary`. A thread's path names the thread, not who
+reads it. The scheduler logs `notification schedule wrote` with `emails` and `in_app` after each run
+that wrote anything. The log has no query string and no principal. It cannot show the polls that
+carry `after`, a count per signed-in user, or a poll that keeps running for a user who has left. That
+breakdown would need the request log to gain those fields, which is an api change. No threshold is
+set; Thuong decides whether the week's figures are wanted, and whether the log should gain the fields.
 
 ---
 

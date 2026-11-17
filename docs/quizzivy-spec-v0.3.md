@@ -3637,10 +3637,10 @@ GET    /teacher/tests?include=shared&status=&tag=&q=&page=&limit=
                                           access; without it the caller's own tests, an Admin's too
 POST   /teacher/tests | GET /:id | PATCH /:id
                                         every Test carries access (owner | edit | use; scope.all reads as owner),
-                                          owner and sharedWith (0 for a reader who is not its owner); 403
-                                          SHARE_READ_ONLY for a Can-use write, SHARE_OWNER_ONLY for an owner's action
-                                          (archive, delete, duplicate, delete a version); STALE_WRITE names
-                                          updatedBy and updatedAt in its details (R7)
+                                          owner and sharedWith (0 for a reader who is neither its owner nor
+                                          scope.all); 403 SHARE_READ_ONLY for a Can-use write, SHARE_OWNER_ONLY for
+                                          an owner's action (archive, delete, duplicate, delete a version);
+                                          STALE_WRITE names updatedBy and updatedAt in its details (R7)
 POST   /teacher/tests/:id/copy          → 201 Test: the caller's own copy of the current draft, for any reader
 POST   /teacher/tests/:id/question-copies {questionIds} → 201 {questionIds}: copies of questions the caller reads,
                                           into the test owner's bank, created by the caller, for a later autosave to
@@ -3788,7 +3788,7 @@ GET    /teacher/directory/teachers?q=&limit= → {teachers}: at most 10 colleagu
 GET    /teacher/shares?kind=&resourceId= → {owner, grants}; owner or scope.all, else 403 SHARE_OWNER_ONLY (a
                                           grantee) or 404
 POST   /teacher/shares                  {kind, resourceId, granteeIds (1-20), access, notify, message?} → 201 {grants,
-                                          skipped: [{userId, reason: SELF | NOT_A_TEACHER | ALREADY_SHARED | DISABLED}]};
+                                          skipped: [{userId, code: SELF | NOT_A_TEACHER | ALREADY_SHARED | DISABLED}]};
                                           owner or scope.all; 30/h per user
 PATCH  /teacher/shares/:shareId          {access} → ShareGrant | DELETE /teacher/shares/:shareId (Stop sharing) → 204
 GET    /teacher/shared-with-me?kind=&q=&page=&limit= → {items, counts, page…}, newest grant first; a deleted

@@ -806,6 +806,7 @@ built-in Assistant, a custom role) can receive classes and tests that only an Ad
 Parking content with a reader until a new teacher arrives is legitimate and recoverable, and a map of
 kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns before the Admin
 confirms, naming the kinds the recipient cannot edit.
+
 ---
 
 ### O-R5.12 — Adding several class members at once · decided 2026-10-19 (D-054)
@@ -1018,6 +1019,7 @@ migration that widens that role.
 `people.users.manage`, so a role that reaches Messages and only reads students (the Assistant) has
 Send message in the row menu and no bulk Message, though the deck draws it with no gate. Kept so the
 Assistant's list stays plain (#285). **Open:** whether `canMessage` alone opens checkboxes.
+
 ---
 
 ## Answered during planning

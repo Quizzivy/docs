@@ -1608,7 +1608,7 @@ the file it adds.
 | `00156_create_leads.sql` | `leads`, its checks, four indexes and `updated_at` trigger; `SELECT (id, created_at), DELETE` to `quizzivy_maintenance` | T-R11.6, D-71 |
 | `00157_add_organization_lead_recipients.sql` | `organization_settings.lead_recipients text[]`, default empty, at most five | T-R11.6 |
 | `00159_create_question_sets.sql` | `question_sets` (soft-deleted, `DELETE` revoked from the app role) and `question_set_items`, its deferrable ordinal key and the question index | T-R7.1 |
-| `00160_create_content_shares.sql` | `content_shares`, its three CHECKs, two unique keys per kind, the grantee index and `updated_at` trigger | T-R7.1, D-72, D-73 |
+| `00160_create_content_shares.sql` | `content_shares`, its three named CHECKs, one unique key per kind, the grantee index and `updated_at` trigger | T-R7.1, D-72, D-73 |
 | `00161_add_co_editing_provenance.sql` | nullable `tests.updated_by` and `questions.updated_by`, each FK `NOT VALID` then validated | T-R7.1, D-74 |
 | `00162_allow_message_received_preference.sql` | `notification_preferences_event_check` admits `message.received` | T-R7.9 |
 | `00163_create_message_attachments.sql` | `message_attachments`; `UPDATE` revoked from the app role; column `SELECT` and `DELETE` to `quizzivy_maintenance` | T-R7.9 |
