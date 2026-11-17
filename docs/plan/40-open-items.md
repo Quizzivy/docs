@@ -1008,11 +1008,11 @@ Thuong keeps both, or asks for the uploader's name as sent and no Admin download
 Before the release a DOCX, a DOC and a DOCM saved by Word or LibreOffice are attached once: the tests'
 Office fixtures are generated.
 
-### O-R7.19 — The maintenance console's AI decisions by email · Thuong
-**Default (built):** an Admin's approve or decline in the app emails the teacher (T-R7.23);
-`cmd/maintenance ai approve` and `ai decline --apply` tell the teacher in the bell only, because
-`quizzivy_maintenance` has no privilege on `email_outbox`. **Open:** whether to grant it, in a
-migration that widens that role.
+### O-R7.19 — The maintenance console's AI decisions by email · decided 2026-11-16, built
+**Built:** the owner chose to grant it ("Cấp quyền gửi email"). `cmd/maintenance ai-credits approve`
+and `decline` with `-apply` email the teacher as the Admin operation does (T-R7.23). `00173` lets
+`quizzivy_maintenance` queue that one email and nothing else, under a guard trigger (data model §66,
+D-80), and the email dispatcher runs at least once a minute so the row goes within about a minute.
 
 ### O-R7.20 — Bulk Message for a role that only reads students · Thuong
 **Default (built):** the Students page shows checkboxes only with Move, Reset or

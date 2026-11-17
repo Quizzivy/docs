@@ -1451,6 +1451,7 @@ listed here matches the spec.
 | D-77 | `quizzivy_maintenance` reads the messaging tables by column, never a body, a file name or a storage key | 00139's least-privilege rule, and D17: contents stay with their two participants |
 | D-78 | `00167` adds two deferred fill triggers for `messaging_ties`, although plan 77 says R7 needs none; R8's contract step drops them | The R6 binary serves between the migration and the swap and writes no tie, and `messaging-peer` reads only ties, conversations and `created_by`, so a student R6 enrolled in that window would be unreachable |
 | D-79 | `email_suppressions` is keyed by the address, with no foreign key to `users`, and holds only an address an outbox row or an account already has (`00172`, §65) | Resend reports an address, not an account. A user whose email changes is no longer suppressed, which is how an Admin lifts a suppression today (O-R7.3); an address Quizzivy never held is not stored |
+| D-80 | `quizzivy_maintenance` may queue one email, the credit decision of a request it decided, and nothing else (`00173`, §66) | The owner's decision of 2026-11-16 (O-R7.19): the console's approve and decline email the teacher as the Admin operation does. A guard trigger ties each row to a decided request, its teacher's own address and the decision's own dedupe key, so a leaked credential can mail no one else, take no other email's key and spend no budget |
 
 ---
 
@@ -4610,4 +4611,28 @@ key the replay check; the outbox probe has no index on the address, over a table
 `quizzivy_app` holds `SELECT`, `INSERT` and `DELETE` (the last for a future "lift" action), no `UPDATE`;
 `quizzivy_maintenance` holds nothing, so D16's anonymisation does not remove a suppression (O-R7.12). The
 file creates one empty table with no foreign key and locks nothing else; its Down drops it.
+
+## 66. The maintenance console's decision email (T-R7.23, O-R7.19, D-80)
+
+`00173_grant_maintenance_decision_email.sql` lets `cmd/maintenance ai-credits approve` and `decline` with
+`-apply` email the teacher, as the Admin operation does (the owner's decision of 2026-11-16). The console hands
+the decision to Notify with its email channel, which queues the row in the outbox (§49); the API's and the
+worker's dispatchers send it. The grants are what that path runs, column by column:
+
+- `SELECT (email)` on `notification_preferences` and `SELECT (locale)` on `users`, which the recipient
+  query and the outbox's INSERT read;
+- `INSERT` on the ten columns of `email_outbox` that `Outbox.Enqueue` names, and `SELECT (id, dedupe_key)`
+  for its `RETURNING id` and its fallback read by key;
+- `UPDATE` on `ai_credit_requests` narrowed from every column (00139) to `status`, `decided_by` and
+  `decided_at`, the three the decision writes.
+
+The role still cannot read, change or delete a queued row, and holds nothing on `email_suppressions` (§65).
+A `BEFORE INSERT` trigger, `email_outbox_maintenance_guard`, fires `WHEN (current_user =
+'quizzivy_maintenance')` and raises `42501` unless the row is the decision email
+(`ai_credit_request_decided`) of a request in `approved` or `declined`, with no sealed secret, `params`
+holding the request's id alone, `dedupe_key` `email:ai_decision:<request>:<teacher>`, to the teacher's own
+address. With the unique dedupe key the role can queue at most one row per decided request (D-80); what the
+email says is read again when it is sent. The function is `SECURITY INVOKER` with a pinned `search_path` and
+no `EXECUTE` for `PUBLIC`, as 00139's users guard is. `privileges_test.go` pins the grants in both
+directions, and its Down restores 00172's grants exactly.
 
