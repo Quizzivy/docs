@@ -97,8 +97,17 @@ conflict to know: the skill teaches the pre-18
   a D-entry or the owner's approval in the PR body, and a release-notes line
   for tabs loaded before the deploy. Never touch `info.version` outside the
   release PR.
-- **`attempt_events` and `audit_log` are append-only.** The app role has no
-  `UPDATE` or `DELETE` on them. Do not grant it.
+- **`attempt_events`, `audit_log` and `messages` are append-only.** The app
+  role has no `UPDATE` or `DELETE` on them. Do not grant it. A message is
+  deleted in one place only: D16's anonymisation of an account's direct
+  conversations, as `quizzivy_maintenance`.
+- **A direct message is readable by its two participants only**, the staff
+  member and the student (D17). `scope.all` never opens one, and neither does
+  any other permission: an Admin's id answers a direct thread, its messages
+  and its files as a missing one does, and the data export carries counts,
+  never contents. Class channels are class content and follow class scope.
+  Message posts, reads and uploads are not audited (`messages` is the
+  record), and an email never carries a message body.
 - **The AI assistant never writes a grade, a question or a comment.** A
   suggestion is stored only when a teacher accepts it through an existing write
   (the import's reader returns printed lines as evidence, and review and the
@@ -218,7 +227,9 @@ web/               quizzivy-web
                    layouts/AdminLayout.tsx and layouts/shell/; features/notifications
                    is the bell and its preferences in both consoles; users, roles, audit,
                    exports, organization, ai-credits and api-reference are the Admin
-                   console's, and admin-overview is its Overview
+                   console's, and admin-overview is its Overview; features/sharing is
+                   the share dialog, Shared with me and the access helpers (R7), and
+                   features/messages the teacher's and the student's Messages (R7)
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
@@ -229,7 +240,8 @@ server/            Go module `quizzivy`: a modular monolith
                      download and reads the CSV and XLSX files they upload
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
-                     answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
+                     answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress),
+                     ties (who has taught whom, R7), provenance (a row's last writer, R7), filetype (attachment sniffing, R7)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
                      access (roles, grants, the principal cache; http/ serves /admin/roles);
@@ -242,7 +254,10 @@ server/            Go module `quizzivy`: a modular monolith
                      exports (an Admin's data export) are R5's; identity's and exports'
                      application/worker/ is the runner cmd/import-worker drives;
                      leads (the consultation requests of the landing site's form: the open
-                     operation, the Admin's list, the notice to the centre) is R11's
+                     operation, the Admin's list, the notice to the centre) is R11's;
+                     sharing (the grants of a test or a question set, the colleague
+                     directory, Shared with me) and messaging (class channels, direct
+                     threads, attachments, read pointers) are R7's
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited (gen/contract/ too)
 migrations/        goose, forward-only, 00001…
@@ -320,14 +335,19 @@ unit, integration and end-to-end in that order.
   through `IssueSession`; a new read or write of the session list filters by
   the request's audience.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Twelve operations are open —
+  derived from `api/openapi.yaml`'s `security`. Thirteen operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
   beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
   `GET /public/organization`, `GET /public/organization/logo`,
-  `POST /auth/set-password/check`, `POST /auth/set-password` and the landing
-  site's consultation form, `POST /public/leads` — and the list is pinned by
-  `theOpenTwelve` in `core/router/tests/auth_middleware_test.go`, so a
-  thirteenth takes an argument.
+  `POST /auth/set-password/check`, `POST /auth/set-password`, the landing
+  site's consultation form, `POST /public/leads`, and Resend's webhook,
+  `POST /public/email-events` (R7) — and the list is pinned by
+  `theOpenThirteen` in `core/router/tests/auth_middleware_test.go`, so a
+  fourteenth takes an argument. The webhook's credential is the Svix
+  signature over the body as it arrived, keyed with `RESEND_WEBHOOK_SECRET`:
+  it answers `204` or `401`, both empty, whatever the delivery says, `501`
+  without the secret, and is limited to 120 a minute per address before the
+  signature is checked.
 - **The landing site is not a web host** (spec §5.9). `quizzivy.com` is a
   build of its own (`web/dist-landing`, from `web/src/features/landing`) with
   no sign-in and no session. It asks the API for nothing when it opens, and
@@ -434,7 +454,7 @@ them locally, or in a test, use two ports of `localhost`, never `my.localhost`
 and `portal.localhost`, which are other sites than `localhost` (spec §5.8; the
 web's E2E serves one build on 4173, 4174 and 4175).
 
-Six local-dev facts worth not rediscovering:
+Seven local-dev facts worth not rediscovering:
 
 - **The `postgres:18` image changed its data layout.** The volume mounts at
   `/var/lib/postgresql`, and the image puts data in a version subdirectory
@@ -455,6 +475,17 @@ Six local-dev facts worth not rediscovering:
 - **`make test-api`'s end-to-end tier needs MinIO** (`make up`): the isolation
   suite uploads real images, audio and Word sources, through the compose
   endpoint and buckets unless `S3_*` and `IMPORT_S3_BUCKET` say otherwise.
+- **`NOTIFY_EMAIL_EVENTS` turns notification emails off by event** (R7):
+  unset or empty, every one is sent; `none` sends none; a comma list sends only
+  the events it names, whatever each recipient's switches say. The names are
+  `attempt.flagged`, `assignment.extended`, `assignment.due_soon`,
+  `assignment.closing`, `result.ready`, `content.shared`,
+  `class.teacher_changed`, `attempt.submitted`, `message.received`,
+  `summary.weekly`, `ai.allowance_warning`, `ai.credit_request` and
+  `ai.credit_request.decided` (`.env.example`). The API and the worker each log
+  the set at start-up.
+  `RESEND_WEBHOOK_SECRET` (the webhook's signing secret) is read by the API
+  only; without it bounces and complaints are not received.
 - **Without Resend, email lands in a directory.** Without
   `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL` (production refuses to start
   without them), every message, a set-password
@@ -801,10 +832,32 @@ references in another table — and a `FOR UPDATE` on one table does not block a
 deletes. The foreign key does not help either: `ON DELETE RESTRICT` fires on a
 real `DELETE`, not a soft one.
 
-Anything inserting into `app.test_section_questions` must call
-`questions.LockForDraftUse` first, so both operations contend on the same row.
+Anything inserting into `app.test_section_questions`, `app.test_section_units`
+or `app.question_set_items` must call `questions.LockForDraftUse` first, so both
+operations contend on the same row.
 `TestLockForDraftUseSerialisesAgainstDelete` drives both halves concurrently and
 fails within two attempts without it.
+
+**A draft only references questions its test's owner owns** (R2's invariant,
+T-R2.12a; R7 keeps it under sharing). When anyone who is not the test's owner,
+an Admin included, creates a question in a shared test, adds one from their
+own bank or copies one in, the result lands in the owner's bank with
+`created_by` recording the actor (`forTestId`, `copyQuestionsForTest`). So the
+owner can always manage every question in their drafts, and `LockForDraftUse`
+stays sufficient. Do not add a path that puts another teacher's question into
+a draft.
+
+**Copy-on-write is decided per edit, under the question's lock** (T-R7.6). A
+non-owner's edit of a bank question in a test or set they can edit
+(`editTestQuestion`, `updateQuestion?setId=`) goes through
+`questions/repositories.WriteInContext`, and `ContextUse`, which counts the
+question's other drafts and sets, runs after `LockForDraftUse` in the same
+transaction. When anything else references the question the edit forks it: the
+fork belongs to the question's owner, is created by the editor, and only the
+edited test or set is re-pointed. The owner's own edits never fork. Without
+the lock, an edit grant on test A silently changes test B, which was never
+shared; `TestAnEditDecidesItsForkUnderTheQuestionsLock` fails on its first
+attempt without it.
 
 The same applies to `app.media_assets`: anything inserting into
 `app.test_version_questions` must call `media.LockForVersionUse` first, or a
