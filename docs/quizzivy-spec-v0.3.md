@@ -3,6 +3,10 @@
 **Version:** 0.121 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (next release)**
+
+- §10.2 Fullscreen is left on every way out of the paper and entered again on every way in (the owner, 2026-11-17): the ✕ and any navigation away leave it, as a submit of any kind already did; Home's "Tiếp tục làm bài" enters it when the paper asks for it; an intro start the server refuses leaves the fullscreen its click entered (Quizzivy/web#144).
+
 **Changes pending (R7, v0.14.0)**
 
 R7, collaboration (`docs/plan/77-r7.md`): sharing between teachers, Messages and the email channel. T-R7.25 records the release's tasks below; the release PR numbers the version (§18).
@@ -2726,7 +2730,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 
 Announced, visible, never silent.
 
-- The intro page states the active rules in plain Vietnamese before starting, generated from the stored policy (§9). If `requireFullscreen` is on, the intro's click that starts or resumes the attempt is what enters fullscreen (browsers require a gesture): "Bắt đầu" in the "Bắt đầu ngay?" dialog, or the intro's "Tiếp tục làm bài". Home's "Tiếp tục làm bài" (§9) goes straight to the paper and does not ask for fullscreen: the engine opens outside it and shows the fullscreen bar described below. A browser with no fullscreen is told so and takes the test as normal.
+- The intro page states the active rules in plain Vietnamese before starting, generated from the stored policy (§9). If `requireFullscreen` is on, the intro's click that starts or resumes the attempt is what enters fullscreen (browsers require a gesture): "Bắt đầu" in the "Bắt đầu ngay?" dialog, or the intro's "Tiếp tục làm bài". Home's "Tiếp tục làm bài" (§9) goes straight to the paper and enters fullscreen once the resume answers, when the paper asks for it: the card does not carry the policy, so its click's activation is spent on the request, and a browser that has let it lapse refuses; the engine then opens outside fullscreen and shows the fullscreen bar described below. A start or resume the server refuses leaves the fullscreen its click entered. A browser with no fullscreen is told so and takes the test as normal.
 - Each counted absence opens the deck's `alertdialog` when the student returns: "Bạn vừa rời trang làm bài", one body and one button, "Quay lại bài làm". The body says where the student stands and what happens next, and only what the server does:
   - within the allowance, "Lần này được tính là lần n trong m lần được phép…";
   - past it under `flag`, that the teacher has been told and the answers are safe (D8);
@@ -2739,7 +2743,8 @@ Announced, visible, never silent.
 - A small persistent indicator shows remaining strikes when a limit is set: after the save line from 768, in the strip under the header below it (§9). Past the allowance it reads "Giáo viên đã được báo" under `flag`. `maxFocusLoss = 0` retains the unlimited default; `-1` permits no counted departure; positive values permit that many departures.
 - `onLimitExceeded`: `warn` = dialog only; `flag` = attempt marked for the admin, student told; `auto_submit` = immediate submission on exceeding the count, retaining answers for grading and recording the violation. There is no cancellation or extra strike. The final answer/event batch is saved before the server grades and closes. While offline, the attempt is locked locally, pending answers are retained and submission is retried with a visible notice.
 - Fullscreen exit shows a bar under the header with a "Quay lại toàn màn hình" button, or one sentence on a browser with no fullscreen. It is a bar, never a dialog. Never trap the student: `Esc` always works and there is always a visible way to leave and submit.
-- Once the attempt is submitted on an assignment that requires fullscreen, by the student, the timer or an auto-submit, the engine leaves fullscreen itself. That exit is the app's, so from then on no `fullscreen_enter` or `fullscreen_exit` is recorded, the student's own on the submitted screen included. A paper that is locked without a submit (taken over, already ended) stays as it is.
+- Once the attempt is submitted on an assignment that requires fullscreen, by the student, the timer or an auto-submit, the engine leaves fullscreen itself. That exit is the app's, so from then on no `fullscreen_enter` or `fullscreen_exit` is recorded, the student's own on the submitted screen included. A paper that is locked without a submit (taken over, already ended) stays as it is while it is on screen.
+- Leaving the paper by any way out, the ✕, the browser's back button or any other navigation, leaves the fullscreen the engine asked for, once the engine has unmounted and none is mounted a tick later (so React's development remount keeps it). The monitor's listeners are gone by then, so that exit is not recorded. A fullscreen the assignment did not ask for is left alone.
 - Under `blockCopyPaste`, a copy, cut or paste is stopped and recorded, and a danger toast says "Sao chép và dán đã bị tắt trong bài này": one toast, however often.
 - Under five minutes the timer takes the danger tones (D8). A polite live region says the time left once when it passes 5:00 and once when it passes 1:00.
 - While the maintenance or sign-in-again overlay (§9) covers the engine, no focus change is recorded. An away episode already open when one appears is dropped, so time on an overlay never counts against the student.
