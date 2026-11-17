@@ -79,11 +79,11 @@ and that the storage tests ran against MinIO and did not skip.
 |---|---|---|---|---|
 | Every `/teacher/*` route matches the deck at 360, 768, 1024, 1280, 1440, light and dark, sidebar expanded, collapsed and drawer | Section 4, once per route, against the T-R4.51 seed; evidence in the PR template table and a route-by-route matrix kept by the tester | browser | each screen task at V; whole matrix at T-R4.51 and Rel | tester |
 | Old teacher tree deleted; `router-chunks.test.ts` passes with regexes updated, not weakened | `grep -rn "admin" web/src/app/router.tsx` for a surviving old tree; diff of `router-chunks.test.ts` read by the tester: only path regexes may change, every assertion count stays (an assertion deleted is a finding); `pnpm test:integration -- router-chunks` | integration | T-R4.48 at V; Rel | tester |
-| No active join code in production uses the legacy lookup | The count query T-R4.22 records, run on a Neon branch before and on production after the deploy; API log shows `legacy_join_codes_rotated` with the rehearsed count (R4 only: v0.12.0 removed the job, and `00141` refuses a live legacy code) | production | Rel | Thuong runs, tester supplies the query and expected numbers |
+| No active join code in production uses the legacy lookup | The count query T-R4.22 records, run on a branch of the previous database before and on production after the deploy; API log shows `legacy_join_codes_rotated` with the rehearsed count (R4 only: v0.12.0 removed the job, and `00141` refuses a live legacy code) | production | Rel | Thuong runs, tester supplies the query and expected numbers |
 | Pasted-text count fixture passes in Go and web | `go test ./internal/modules/imports/domain/recognition/...` and `pnpm test:unit -- paste-scan`; both read `api/testdata/pasted-text-counts.json`; also check CI's `web` and `server` sets still list the file (`scripts/ci/plan.mjs`) | unit | T-R4.57 at V; Rel | tester |
 | Five canaries green and untouched | Section 3 | unit/integration | every PR touching a high-risk area; Rel | tester |
 | Every CI step green on every PR, and once locally in order at T-R4.52 | 2.1 in order, stop at the first failure, record each exit code | all | Rel | tester |
-| Released as `v0.10.0`; Neon hours measured for the week after (PR-7) | Release checklist, below. Pass threshold is not defined (see section 9) | production | after Rel | Thuong |
+| Released as `v0.10.0`; the previous database's compute hours measured for the week after (PR-7) | Release checklist, below. Pass threshold is not defined (see section 9) | production | after Rel | Thuong |
 
 ### 2.3 Release checklist (`74-r4.md`)
 
@@ -92,10 +92,10 @@ and that the storage tests ran against MinIO and did not skip.
 | 70 §8.1 locally in order | 2.1; one log per step kept in the scratchpad, summarised in the handoff | Rel | tester |
 | Canaries untouched | Section 3; `git diff <v0.9.0 or branch point>..HEAD -- <five files>` shows only the disclosed T-R4.51b fixture change in `publish_snapshot_test.go` and the router-chunks regexes | Rel | tester |
 | Security block | Section 5: isolation suite entries (kinds `notification` and `override` exist), payload-leak walk, credential-limit test lists `resetStudentsPasswords` and `listClasses`, `STUDENT_SHARED` case, `/me/*` responses `no-store` | Rel | tester |
-| Migrations rehearsed on a Neon branch | Timings, count of questions with more than 8 options, count of legacy codes to rotate (R4 only: from v0.12.0, `00141` refuses a live legacy code). Not reproducible in this container | Rel | Thuong or platform engineer; tester checks the numbers are recorded |
+| Migrations rehearsed on a branch of the previous database | Timings, count of questions with more than 8 options, count of legacy codes to rotate (R4 only: from v0.12.0, `00141` refuses a live legacy code). Not reproducible in this container | Rel | Thuong or platform engineer; tester checks the numbers are recorded |
 | Exam windows | Query assignments closing inside the deploy window | Rel | Thuong |
 | No import queued or running | Query imports by status; `word-pipeline-v3` retires v2 runs | Rel | Thuong |
-| Cloudflare headers, `.env.example`, Fly config | `grep -E 'MEDIA_OWNER_QUOTA_MIB|EMAIL_DAILY_LIMIT|PLAN_' fly.toml` must find nothing, since the limits live in Settings → Plan & usage (v0.12.2); `grep VITE_RICH_QUESTION_EDITOR -r .env.example web/ .github/` must find nothing except history | Rel | tester (repo part), Thuong (Cloudflare) |
+| Cloudflare headers, `.env.example`, the previous host's config | The previous host's config must set none of `MEDIA_OWNER_QUOTA_MIB`, `EMAIL_DAILY_LIMIT` and `PLAN_*`, since the limits live in Settings → Plan & usage (v0.12.2); `grep VITE_RICH_QUESTION_EDITOR -r .env.example web/ .github/` must find nothing except history | Rel | tester (repo part), Thuong (Cloudflare) |
 | Deploy and smoke | `node scripts/verify-deployment.mjs` (`/healthz`, `/livez`, headers) then the checklist's manual smoke per role | Rel | Thuong; tester supplies the click path |
 | Smoke of #330, #320, #314, #331 | Phone-class checks (airplane mode, reload mid-question, roster events). Only the engine's unit and stubbed phone specs run here; the real-device part is Thuong's | Rel | Thuong |
 | Release notes | Read against the shipped behaviour: new join code sentence, notifications, extensions, versions, media replace, paste a test, editor | Rel | tester reads, Tech Lead edits |
@@ -603,11 +603,11 @@ To be settled by the Tech Lead or Thuong before anyone builds against them.
    that 27b adds; at 27a it can only cover test and students.
 10. **T-R4.51:** "Vite and the API stopped afterwards" has no check. "The plan's
     Done-when boxes lag" (ledger): ticks are not evidence.
-11. **Neon compute hours after release (PR-7, NFR-A10):** no pass threshold in the
-    exit criterion; the NFR names "well under 6 CU-hours" for a zero-traffic day.
-    Confirm that is the criterion. Not testable before release; polling with
-    idle-aware stop (T-R4.3) is the only pre-release proxy (count requests in an
-    idle tab for 5 minutes).
+11. **The previous database's compute hours after release (PR-7, NFR-A10):** no
+    pass threshold in the exit criterion; the NFR names "well under 6 CU-hours"
+    for a zero-traffic day. Confirm that is the criterion. Not testable before
+    release; polling with idle-aware stop (T-R4.3) is the only pre-release proxy
+    (count requests in an idle tab for 5 minutes).
 12. **Two sidebar keys, no disagreement:** `70` §6 documents both.
     `quizzivy.column.sidebar` is the old `AdminLayout`'s width and goes at
     T-R4.48; `quizzivy.sidebar` is `TeacherLayout`'s collapsed state

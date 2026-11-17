@@ -45,7 +45,7 @@ the public join surface, then the frontend that consumes it.
       that left the app role unable to read anything until then
 - [ ] Test: connected as `quizzivy_app`, `UPDATE app.audit_log` is refused —
       §13.4's append-only claim as a privilege, not a promise
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 

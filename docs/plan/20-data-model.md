@@ -4,7 +4,7 @@ Full DDL for every table in §13, expanded from the sketches. Every foreign key
 has a decided `ON DELETE`, every index has a reason, and every deviation from the
 §13.3 sketch is flagged with `[D-nn]` and justified in §12 of this document.
 
-Governed by the Neon `postgres-best-practices` skill (schema-design, indexing)
+Governed by the `postgres-best-practices` skill (schema-design, indexing)
 and the PostgreSQL 18 docs (§13.1). PG18-specific constructs cite their docs
 section. Verified behaviour is recorded in `00-overview.md` §1.
 
@@ -1443,6 +1443,15 @@ listed here matches the spec.
 | D-69 | Media named inside a prompt or an explanation gets reference rows, `question_media_references` and the frozen `test_version_question_media_references` (`00154`), rather than the readers scanning `prompt_content` and `explanation_content` | "Used in", the delete refusal, the unreferenced sweep, staff readability and student reach all ask whether an asset is in use; a row with a composite FK onto `media_assets (id, kind)` and `RESTRICT` answers that in the database, and `field` keeps a prompt's media (signed while the paper is sat) apart from an explanation's (signed only through the gated result) (§60, D-064) |
 | D-70 | `refresh_tokens` gains `audience text NOT NULL DEFAULT 'any'`, checked against `any`, `student` and `staff` | A session belongs to the web host it was opened at (spec §5.8, web#51): the student host and the staff host share the API host, so the server keeps their sessions apart, and a token must be refused under the other host's cookie. The audience is a property of the session, so it lives on the token row and is copied to each successor, like `family_id`; a column on `users` could not hold two sessions of one account at two hosts. A constant default adds it without rewriting the table and keeps the previous release's insert working; every session that existed reads `any`, the audience of an origin that is neither host |
 | D-71 | `leads` holds personal data outside `users`: the name and the phone number of someone who has no account, given through the landing site's consultation form | A request for a call back is not an account, and making one for it would give a stranger a row in `users` and a place in every list of people. The row holds only what the form asked for, with the consent it carried (`privacy_notice_version`, `consented_at`) and how the centre handled it; no IP address and nothing about the device. It is kept 12 months (D18): the retention sweep deletes it as `quizzivy_maintenance`, which is granted `SELECT (id, created_at)` and `DELETE` and cannot read a name or a number, and an Admin deletes one sooner on request. The audit rows of an update and a delete hold the status change and the id only, because the audit log outlives the request |
+| D-72 | `content_shares` names its resource through one typed nullable FK per kind (`test_id`, `question_set_id`), plus `kind` and three CHECKs, not a polymorphic `resource_id` (`00160`, §62) | Real foreign keys and cascades (D-05, D-17): a grant cannot outlive or misname its resource, and R10 widens the table with `word_list_id` and `course_id` by replacing the three CHECKs |
+| D-73 | A grant stores no owner | The owner is always the resource's current owner, so a grant cannot disagree with it, and R5's transfer moves every grant without a write |
+| D-74 | `tests.updated_by` and `questions.updated_by` (`00161`) are left unfilled for the R6 binary, with no fill trigger | During the rolling deploy the old binary writes NULL, which a stale-write answer reads as nobody named; nothing else reads the column. A row R7 wrote and v0.13 then updates keeps the R7 writer; §62 gives the clean-up after a rollback |
+| D-75 | `messages` is append-only for `quizzivy_app` (UPDATE and DELETE revoked), beside `attempt_events` and `audit_log`. Only D16's anonymisation deletes, as `quizzivy_maintenance` | The log of teacher–student contact protects both sides, and most students are minors. A message nobody can edit is the record, so posts are not audited (D17) |
+| D-76 | `messaging_ties` keeps a pair after the `class_members` row is deleted, instead of a `left_at` on `class_members` | Every membership read would otherwise have to filter `left_at`. A staff member may write first to a former student (the owner, 2026-11-13; O-R7.8) |
+| D-77 | `quizzivy_maintenance` reads the messaging tables by column, never a body, a file name or a storage key | 00139's least-privilege rule, and D17: contents stay with their two participants |
+| D-78 | `00167` adds two deferred fill triggers for `messaging_ties`, although plan 77 says R7 needs none; R8's contract step drops them | The R6 binary serves between the migration and the swap and writes no tie, and `messaging-peer` reads only ties, conversations and `created_by`, so a student R6 enrolled in that window would be unreachable |
+| D-79 | `email_suppressions` is keyed by the address, with no foreign key to `users`, and holds only an address an outbox row or an account already has (`00172`, §65) | Resend reports an address, not an account. A user whose email changes is no longer suppressed, which is how an Admin lifts a suppression today (O-R7.3); an address Quizzivy never held is not stored |
+| D-80 | `quizzivy_maintenance` may queue one email, the credit decision of a request it decided, and nothing else (`00173`, §66) | The owner's decision of 2026-11-16 (O-R7.19): the console's approve and decline email the teacher as the Admin operation does. A guard trigger ties each row to a decided request, its teacher's own address and the decision's own dedupe key, so a leaked credential can mail no one else, take no other email's key and spend no budget |
 
 ---
 
@@ -1599,6 +1608,21 @@ the file it adds.
 | `00155_add_refresh_tokens_audience.sql` | `refresh_tokens.audience` (`any`, `student`, `staff`), default `any` | web#51 (two web hosts), D-70 |
 | `00156_create_leads.sql` | `leads`, its checks, four indexes and `updated_at` trigger; `SELECT (id, created_at), DELETE` to `quizzivy_maintenance` | T-R11.6, D-71 |
 | `00157_add_organization_lead_recipients.sql` | `organization_settings.lead_recipients text[]`, default empty, at most five | T-R11.6 |
+| `00159_create_question_sets.sql` | `question_sets` (soft-deleted, `DELETE` revoked from the app role) and `question_set_items`, its deferrable ordinal key and the question index | T-R7.1 |
+| `00160_create_content_shares.sql` | `content_shares`, its three named CHECKs, one unique key per kind, the grantee index and `updated_at` trigger | T-R7.1, D-72, D-73 |
+| `00161_add_co_editing_provenance.sql` | nullable `tests.updated_by` and `questions.updated_by`, each FK `NOT VALID` then validated | T-R7.1, D-74 |
+| `00162_allow_message_received_preference.sql` | `notification_preferences_event_check` admits `message.received` | T-R7.9 |
+| `00163_create_message_attachments.sql` | `message_attachments`; `UPDATE` revoked from the app role; column `SELECT` and `DELETE` to `quizzivy_maintenance` | T-R7.9 |
+| `00164_create_conversations.sql` | `conversations`, the two partial unique keys and the two side indexes; the app role's only `UPDATE` is `last_message_at` | T-R7.9 |
+| `00165_create_messages.sql` | `messages`, append-only for the app role | T-R7.9, D-75 |
+| `00166_create_conversation_reads.sql` | `conversation_reads`, one pointer per reader per thread; `DELETE` revoked from the app role | T-R7.9 |
+| `00167_create_messaging_ties.sql` | `messaging_ties`, filled from today's members and the audit log; two deferred fill triggers for the R6 binary | T-R7.9, D-76, D-78 |
+| `00168_grant_maintenance_question_set_owners.sql` | `SELECT (owner_id)` on `question_sets` to `quizzivy_maintenance` | T-R7.12 |
+| `00169_tie_no_anonymised_account.sql` | the fill triggers skip an anonymised account; deletes anonymised accounts' ties | T-R7.12 |
+| `00170_widen_notification_preference_events.sql` | `notification_preferences_event_check` admits `summary.weekly` | T-R7.13 |
+| `00171_reset_pre_r7_notification_emails.sql` | data only: the deck's email for the switches saved before R7 | T-R7.13 |
+| `00172_create_email_suppressions.sql` | `email_suppressions`; `UPDATE` revoked from the app role | T-R7.15, D-79 |
+| `00173_grant_maintenance_decision_email.sql` | `quizzivy_maintenance` may queue the credit decision email: column grants on `notification_preferences`, `users` and `email_outbox`, `UPDATE` on `ai_credit_requests` narrowed to three columns, the `email_outbox_maintenance_guard` trigger | T-R7.23, O-R7.19, D-80 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1986,7 +2010,7 @@ new column. Tests exercise both reversible empty schema and refusal with data.
 
 Migration: `00042_create_word_import_sources.sql`. The only PG18-specific construct
 introduced is built-in [`uuidv7()`](https://www.postgresql.org/docs/18/functions-uuid.html).
-The Neon schema/isolation guidance was applied: text checks for evolving states,
+The `postgres-best-practices` schema/isolation guidance was applied: text checks for evolving states,
 `bigint` revisions/byte counts, `timestamptz`, indexed foreign keys and explicit
 `ON DELETE RESTRICT`. No partitioning, learner-media link or audit privilege change.
 
@@ -2229,7 +2253,7 @@ described under the table.
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
 | 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
 | 41 | Retired: the legacy join-code rotation (T-R4.22), removed in R5 (T-R5.1). Not reused | Each class's rotation across API machines, v0.10.0 to v0.11.x |
-| 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+| 42 | Notification scheduler (T-R7.14) | `pg_try_advisory_xact_lock(73819, 42)` in `notifications/repositories.Schedule.Locked`, taken first by each of the API's scheduled runs (`RunSchedule`, which writes the due emails and the weekly summaries in that one transaction): one run at a time across the API's machines. Each run processes every moment of the last 26 hours, and the outbox's dedupe keys make a second run a no-op. A run that does not get the lock writes nothing and tries again 30 seconds later. Nothing else takes it, and a run holds no other advisory lock |
 | 43 | Email dispatch (T-R5.2) | `pg_try_advisory_xact_lock(73819, 43)` in the API's and the worker's dispatcher: one batch is claimed and sent at a time across both processes, so the daily budget and the provider's request rate hold. A dispatcher that does not get it waits and tries again |
 | 44 | Role creation (T-R5.8) | `pg_advisory_xact_lock(73819, 44)` in `createRole`'s insert, then a count of `app.roles`: two creations cannot both take the last of the 200 roles the contract's lists hold (`ROLE_LIMIT_REACHED`). Nothing else takes it, and it is taken after the copy source's `FOR SHARE`, never before a role row lock. |
 | 45 | Seat and teacher limits (CR-002, D-060) | `pg_advisory_xact_lock(73819, 45)` in `shared/limits.Admit`, on the writing transaction, before it counts: two creations, enables or role changes cannot both take the last seat or teacher place. Taken only while a seat or teacher limit is set. |
@@ -2635,8 +2659,9 @@ CREATE TABLE app.notification_preferences (
   for two users is two rows.
 - **A switch that is off stops the write.** The same statement inserts only
   when no `notification_preferences` row for the user and the kind's event has
-  `in_app = false`; a missing row means the default, which is on. `email` is
-  stored and read by nothing until R7.
+  `in_app = false`; a missing row means the default, which is on (since R7,
+  off for `summary.weekly`, `domain.DefaultInApp`). `email` was stored and read
+  by nothing until R7, where it governs each event's email (§64).
 - **`updated_at` moves by the trigger** on both tables (§13.2), on a merge
   and on a mark-read alike. `created_at` never moves: a merged row keeps its
   id, its place in the list and its retention.
@@ -2647,7 +2672,16 @@ CREATE TABLE app.notification_preferences (
   takes its notifications and switches with it. Names inside another user's
   `params` stay, which is the hand-off in D-28.
 - **Later releases replace `notification_preferences_event_check` by name** to
-  add switches (R7, R10). The constraint name is part of the interface.
+  add switches (R7, R10). The constraint name is part of the interface. R7
+  replaced it twice, `00162` (`message.received`) and `00170`
+  (`summary.weekly`), so it admits seven events (§64).
+- **A message item is renewed, not merged** (T-R7.12). A reader holds one item
+  per thread, keyed `msg:{conversation}`. While the thread stays unread each new
+  message rewrites it with a new `id` and `created_at` (`Renew`, a statement of
+  its own), so the item moves to the top of the list and its 180 days start
+  again; it is marked read when the reader's pointer leaves nothing unread.
+  Since the contract's `listNotifications` still says a row is kept 180 days
+  from when it was first written, O-R7.11 records the difference.
 
 Indexes, and the statement each exists for:
 
@@ -2657,7 +2691,7 @@ Indexes, and the statement each exists for:
 | `notifications_unread_idx (user_id) WHERE read_at IS NULL` | The unread count the shell polls (`GET /me/summary`) and "mark all read". Partial, so it holds unread rows only |
 | `notifications_created_at_idx (created_at)` | The daily prune |
 | `notifications_user_dedupe_key (user_id, dedupe_key)`, unique | The merge's conflict target |
-| `notification_preferences_pkey (user_id, event)` | The five switches of one user, and the switch lookup inside `Notify` |
+| `notification_preferences_pkey (user_id, event)` | The switches of one user (five in R4, seven since R7), and the switch lookup inside `Notify` |
 
 `repositories/tests/plan_test.go` seeds 50,000 rows for 200 users inside a
 transaction it rolls back and asserts that the list reads
@@ -2743,7 +2777,7 @@ unchanged. No representative query-plan or runtime performance claim is made.
 
 The combined candidate contains the full migration inventory 00001–00091.
 Its purpose-database app/migrate tests, the isolated 87/88 down/up rehearsal and
-the separate historical oversized-choice Neon inventory remain acceptance gates.
+the separate historical oversized-choice inventory on the previous database remain acceptance gates.
 A synthetic nine-option fixture is compatibility evidence, not a count of real
 historical rows.
 
@@ -3670,6 +3704,35 @@ would cost every failure a write for a scan that runs once a day. A pruned row f
 producer today keys on the export id, which never comes round again, but a producer whose key can repeat after 30
 days would send again. The app role has full DML on the table (it is not append-only: it is a queue).
 
+**Notification emails (R7).** The notification emails (T-R7.13) and the AI assistant's three (T-R7.23) are
+rows whose `params` hold ids only. R5's dispatcher hands each to its template's Preparer just before it
+renders, and the Preparer reads what the email says as it is then, or drops a row that is no longer true:
+the row is closed with `failed_at` and `last_error_code = 'SKIPPED'`, spends no attempt and is pruned like
+any failed row. A submissions digest's params name the papers announced in its bucket (`attemptIds`), which
+are the ones it counts. Their dedupe keys begin `email:`:
+
+- Notify's (T-R7.13): `email:flagged:{attempt}:{user}`, `email:extended:{assignment}:{user}:{closesUnix}`,
+  `email:ready:{attempt}`, `email:submitted:{assignment}:{user}:{bucketUnix}` (plus `:{attempt}` for a paper
+  announced after its bucket's email went), `email:message:{conversation}:{user}:{lastClosedId|first}`,
+  `email:shared:{kind}:{resource}:{user}:{minute}`, `email:teacher_changed:{class}:{user}:{minute}`;
+- the AI assistant's (T-R7.23): `email:ai_warning:{user}:{month}` (the month's first day, as YYYY-MM-DD),
+  `email:ai_request:{request}:{user}`, `email:ai_decision:{request}:{user}`;
+- the scheduler's (T-R7.14): `email:due:{assignment}:{student}:{24h|1h}:{closesUnix}`,
+  `email:closing:{assignment}:{teacher}:{closesUnix}`, `email:ready:{attempt}` (the key grading's result
+  email uses, so a paper is emailed once) and `email:weekly:{teacher}:{isoWeek}`. A reminder or a warning
+  names the close, so a close that moves earns them again; plan 77 named keys without the close (O-R7.10).
+  A weekly summary's params hold its figures (`weekOf`, the Monday's date as 00:00 UTC, `count`,
+  `toGrade`, `flagged`, `classNames`), which the scheduler computes once.
+
+A message email waits ten minutes (`MessageEmailDelay`) and goes only if the thread is still unread at send
+time; each message that rides on a waiting email moves it to ten minutes after itself, and the next one waits
+30 minutes from the last one sent (`MessageEmailSpacing`). `NOTIFY_EMAIL_EVENTS` turns any event's email off
+without a migration, and the scheduler then stops waking for it.
+
+`last_error_code = 'SUPPRESSED'` (T-R7.15) closes a due row whose `lower(btrim(to_address))` is on
+`app.email_suppressions` (§65). The dispatcher closes them first, before it claims anything, so a suppressed
+row takes no claim slot and no share of the day's budget; like `SKIPPED` it spends no attempt.
+
 ## 50. Activity (T-R5.4, DG-54)
 
 **What is recorded, and when.** A password or Google sign-in stamps `last_sign_in_at`, `last_sign_in_method` and
@@ -4195,7 +4258,7 @@ and `max_words smallint` to `questions` and `test_version_questions` (D-63):
 Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, the pattern every populated table
 gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
 `VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
-every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
+every row. It keeps the two steps apart, so the rehearsal on a branch of the previous database times each, and it is already the shape a table too
 large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'` in its Up and
 its Down, so a lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
 `00103` does). The Downs refuse while either table holds a value, since an older binary would mark a choose-N
@@ -4344,3 +4407,233 @@ step runs under the sweep's one switch (O-R11.5).
 `00157_add_organization_lead_recipients.sql` adds `lead_recipients text[] NOT NULL DEFAULT '{}'` with
 `CHECK (cardinality(lead_recipients) <= 5)` to `app.organization_settings`: the addresses told of each new request,
 stored lower-case. The constant default needs no fill. Both files set `lock_timeout = '5s'` and have a working Down.
+
+## 62. Question sets, content shares and co-editing provenance (T-R7.1)
+
+Three files, two new empty tables and two nullable columns on populated ones. No index is built on a
+populated table, so none is `NO TRANSACTION`; each sets `lock_timeout = '5s'` and has a working Down.
+
+`00159_create_question_sets.sql` adds `app.question_sets`, a named, ordered selection of its owner's
+standalone bank questions (DG-90, interim):
+
+- `owner_id` and `created_by` → `users` `ON DELETE RESTRICT`, `updated_by` → `users` `ON DELETE SET NULL`;
+- `name` of 1 to 120 characters after `btrim`, `description` of at most 500, or `NULL`;
+- `created_at`, `updated_at` (by `app.set_updated_at()`) and `deleted_at`: a set is soft-deleted, and
+  the app role has no `DELETE` on the table;
+- `question_sets_owner_idx (owner_id, updated_at DESC) WHERE deleted_at IS NULL` for the owner's list.
+
+`app.question_set_items` holds references, not copies: PK `(set_id, question_id)`, so a set holds a
+question once; `ordinal` (not negative) under `question_set_items_ordinal_key UNIQUE (set_id, ordinal)
+DEFERRABLE INITIALLY IMMEDIATE` (D-13's reorder inside one transaction); `set_id` `ON DELETE CASCADE`;
+`question_id` `ON DELETE RESTRICT`, with `question_set_items_question_idx (question_id)`, which serves the
+purge check and copy-on-write's count of a question's other uses (T-R7.6); `added_by` `RESTRICT` and
+`added_at`. The app role holds all four privileges on items. A question's soft delete removes its items under
+its row lock, and a hard purge of a held question is refused. Every insert into this table takes
+`LockForDraftUse` on the question first, as `test_section_questions` does. A set holds at most 500
+questions (the domain's cap, not a constraint).
+
+`00160_create_content_shares.sql` adds `app.content_shares`, one grant of a test or a set to a teacher:
+
+- `kind` (`test` or `question_set`, `content_shares_kind_check`) and one nullable FK per kind, `test_id`
+  and `question_set_id`, each `ON DELETE CASCADE`; `content_shares_one_resource`
+  (`num_nonnulls(test_id, question_set_id) = 1`) and `content_shares_kind_matches`
+  (`(kind = 'test') = (test_id IS NOT NULL)`) bind the kind to its column (D-72);
+- `grantee_id` → `users` `ON DELETE CASCADE`, `access` (`use` or `edit`), `granted_by` → `users`
+  `ON DELETE RESTRICT`, an optional `message` of 1 to 500 characters, `created_at`, `updated_at` (trigger);
+- no owner column (D-73): the owner is the resource's current owner, so R5's transfer moves every grant
+  without a write, and T-R7.8's transfer deletes only the grants whose grantee now owns what they name,
+  each audited `share.revoked` by the Admin;
+- `content_shares_test_grantee_key UNIQUE (test_id, grantee_id)` and
+  `content_shares_question_set_grantee_key UNIQUE (question_set_id, grantee_id)`: each binds one kind,
+  because NULLs are distinct, and each serves the owner's list and the access predicates' lookup;
+- `content_shares_grantee_idx (grantee_id, created_at DESC)` for Shared with me, `listTests?include=shared`
+  and a bank question's access.
+
+The app role holds all four privileges. Stop sharing and Remove from my list delete the row and nothing
+else: an assignment reaches its version through its own scope, never through a grant. A soft-deleted test
+keeps its grants, which every read ignores; a set's delete removes its grants in the same statement. R10
+widens the table with `word_list_id` and `course_id`, each a plain `ON DELETE CASCADE` FK, by replacing the
+three CHECKs (the file's header). The access SQL is defined once, in `shared/visibility` (`TestAccess`,
+`SetAccess`, `SharedTestIDs`, `QuestionAccess`): `owner` for the owner and `scope.all`, the caller's grant
+level, or NULL.
+
+The four new `RESTRICT` keys to `users` (`question_sets_owner_id_fkey`, `question_sets_created_by_fkey`,
+`question_set_items_added_by_fkey`, `content_shares_granted_by_fkey`) report `referencedBy: owned_content`.
+They have no index of their own, so deleting a user scans these small tables.
+
+`00161_add_co_editing_provenance.sql` adds `tests.updated_by` and `questions.updated_by`, nullable,
+→ `users` `ON DELETE SET NULL`, each FK added `NOT VALID` and validated in the same file, with no fill
+trigger (D-74). Every R7 write of a test or a bank question sets it to the actor (a renumbering, a media
+replacement and a fork included), and `409 STALE_WRITE` names that writer (`shared/provenance`). The R6
+binary never names the column, so a row it updates after an R7 write keeps the R7 writer while
+`updated_at` moves. After a rollback to v0.13, before R7 takes traffic again, clear what v0.13 wrote, with
+the `updated_at` triggers disabled as `00060` does:
+
+```sql
+UPDATE app.tests SET updated_by = NULL WHERE updated_at >= :rolled_back_at;
+UPDATE app.questions SET updated_by = NULL WHERE updated_at >= :rolled_back_at;
+```
+
+## 63. Messaging (T-R7.9, T-R7.12, D17)
+
+Five new empty tables, `00163` to `00167`, plus two follow-ups in T-R7.12. Each of `00163` to `00167` checks
+that `quizzivy_maintenance` exists, as `00139` does, and fails without it.
+
+`00163_create_message_attachments.sql` adds `app.message_attachments`, a staff member's file: `uploaded_by`
+`RESTRICT`, a unique `storage_key` (objects under `messages/`), a sniffed `mime_type` among PDF, DOCX, DOC,
+PNG, JPEG, MP3 (`audio/mpeg`) and M4A (`audio/mp4`) (`message_attachments_mime_type_check`; no WebP: an
+image must pass `image.DecodeConfig`'s dimension cap), `bytes` 1 to 20 MiB, an `original_filename` of 1 to
+200 characters (stored ending in an extension of the sniffed type, T-R7.11), a 32-byte `checksum_sha256`,
+and `message_attachments_uploader_idx (uploaded_by, created_at)`. The app role holds `SELECT`, `INSERT` and
+`DELETE` (no `UPDATE`): it deletes an unsent file, and once a message names one, the `RESTRICT` key from
+`messages` keeps it. The daily housekeeping removes files left unsent for 24 hours, scanning the table by
+`created_at` once a day, and objects under `messages/` that no row names.
+
+`00164_create_conversations.sql` adds `app.conversations`: a class channel (`kind = 'class'`, `class_id`
+alone, `conversations_class_shape`) or a direct thread (`kind = 'direct'`, `staff_id` and `student_id`
+alone, `conversations_direct_shape`), with `conversations_participants_differ`. `conversations_class_key
+(class_id) WHERE kind = 'class'` and `conversations_direct_key (staff_id, student_id) WHERE kind =
+'direct'` give one channel per class and one thread per pair, and are the targets of the first post's
+`ON CONFLICT DO NOTHING`: the row is created by the first post. `conversations_staff_idx` and
+`conversations_student_idx` on `(…, last_message_at DESC) WHERE kind = 'direct'` serve each side's list.
+Every key is `RESTRICT`: a class whose channel has posts, or an account with a thread, is never hard-deleted,
+and the 409 names `referencedBy: messages`. The app role inserts, and updates `last_message_at` alone.
+
+`00165_create_messages.sql` adds `app.messages`: `conversation_id`, `sender_id`, a client-made `client_id`,
+`body` and `attachment_id` (unique: one file belongs to one message), every key `RESTRICT`.
+`messages_body_check` stores the body trimmed, 1 to 4000 characters (`body = btrim(body, E' \t\n\r')`),
+`messages_has_content` requires a body or a file, `messages_sender_client_key UNIQUE (sender_id, client_id)`
+makes a retried send idempotent, and `messages_conversation_idx (conversation_id, id DESC)` serves pages, the
+unread count and the newest message. The table is append-only for the app role (D-75). A post locks its
+thread's row `FOR NO KEY UPDATE` before the message id is made, so a thread's ids follow the order its posts
+commit and a reader who polled past an id cannot miss an earlier one.
+
+`00166_create_conversation_reads.sql` adds `app.conversation_reads`, one pointer per reader per thread:
+PK `(conversation_id, user_id)`, both `ON DELETE CASCADE`, `last_read_message_id` with no key (compared with
+`messages.id` in uuidv7 order) and `read_at`. The app role holds `SELECT`, `INSERT` and `UPDATE`; the
+pointer only moves forward (`ON CONFLICT … DO UPDATE … WHERE old < new`). The unread count is the other
+people's messages past the pointer.
+
+`00167_create_messaging_ties.sql` adds `app.messaging_ties (staff_id, student_id, since)`, who has taught
+whom (O-R7.8, D-76): PK `(staff_id, student_id)`, both `ON DELETE CASCADE`,
+`messaging_ties_participants_differ`. Up fills it from today's `class_members` joined to their class's
+teacher and from the audit log's `class.member_enrolled` rows, each pair once, `since` the earliest moment
+known. `shared/ties` (`Enrolled`, `Reassigned`) writes a tie in the transaction of every enrolment (the
+join with a code, `addClassMember`, `createStudent` and `createUser` with a class, the user import) and of
+every change of teacher (an Admin's, and R5's content transfer); a write that ties locks the class
+`FOR SHARE` first, and the join with a code now locks the class before the code row. Leaving a class removes
+nothing. The app role holds `SELECT` and `INSERT`. Before the fill the file adds two constraint triggers,
+`class_members_fill_messaging_ties` (after insert on `class_members`) and `classes_fill_messaging_ties` (after
+an update that changes `teacher_id`), `DEFERRABLE INITIALLY DEFERRED`, each `ON CONFLICT DO NOTHING`, so the
+R6 binary's enrolments during the rolling deploy are tied at their commit (D-78). Their functions are
+`SECURITY INVOKER`, with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`. **R8's contract step drops
+both triggers and both functions.** Creating them holds `SHARE ROW EXCLUSIVE` on `class_members` and
+`classes` until the file commits.
+
+`quizzivy_maintenance` holds `DELETE` on the five tables and `SELECT` only on the columns D16's anonymisation
+finds rows by (D-77): `message_attachments (id, uploaded_by)`, `conversations (id, kind, staff_id,
+student_id)`, `messages (id, conversation_id, attachment_id)`, `conversation_reads (conversation_id,
+user_id)`, `messaging_ties (staff_id, student_id)`. Anonymisation (T-R7.12) deletes the account's direct
+threads with their messages, pointers, files' rows and bell items, and its ties, in one transaction; class
+channel posts stay. The objects of deleted file rows go at the next housekeeping run. `00168` grants it
+`SELECT (owner_id)` on `question_sets`, which the owner check of anonymisation reads. `00169` replaces the two
+fill-trigger functions so that they skip an anonymised account (`anonymous-{id}@anonymous.invalid`) and
+deletes anonymised accounts' ties; its Down restores `00167`'s bodies and does not bring the deleted ties
+back.
+
+Attempt-event cards in a staff member's thread are not rows. They are computed when the thread is read, from
+the student's flagged attempts on assignments the reader sees in the papers list (`visibility.Papers`), from 24
+hours before the thread's first message (T-R7.10b). Storing them would create threads out of flags and repeat
+the flagged notification, and the student's projection must not carry them (DG-91).
+
+Known gaps, accepted while the tables are small and deletions rare: a user's deletion scans `messages`
+(`sender_id`) and `conversation_reads` (`user_id`); the `RESTRICT` checks on `conversations` cannot use the
+partial indexes; anonymisation's tie delete scans `messaging_ties` by `student_id`.
+
+## 64. Notification switches and email (T-R7.9, T-R7.13, T-R7.14)
+
+`notification_preferences_event_check` admits seven events: `attempt.submitted`, `attempt.flagged`,
+`assignment.closing`, `assignment.due_soon`, `result.ready`, `message.received` (`00162`, T-R7.9) and
+`summary.weekly` (`00170`, T-R7.13). Each replaces the CHECK by name, `NOT VALID` then `VALIDATE`. `00162`'s
+Down deletes the saved `message.received` rows and restores R4's five; `00170`'s deletes the
+`summary.weekly` rows and restores `00162`'s six. Plan 77 gave both events to T-R7.13; `message.received`
+landed with the messaging contract, which already answered six rows.
+
+`email` governs email since R7 (T-R7.13). A missing row is the deck's default: in the app on, except
+`summary.weekly`; by email on for a teacher's `attempt.flagged`, `message.received` and `summary.weekly`, off
+for `attempt.submitted` and `assignment.closing`. A student has one switch for both channels (DG-82): a
+student's `email` is always stored equal to `in_app`, and a student's email is decided by `in_app`.
+
+`00171_reset_pre_r7_notification_emails.sql` is a data step. R4's page showed only the In app switch and
+saved every row with `email = false`, which no one chose. It sets `email = true` on a staff member's saved
+`attempt.flagged`, `message.received`, `summary.weekly`, `assignment.due_soon` and `result.ready` rows that
+hold false, keeps a row that holds true, and sets a student's `email` to their `in_app`. Its Down changes
+nothing: the column was never read before R7 (O-R7.9).
+
+Share and collaborator notices have no switch (`content.shared`, `test.published_by_collaborator`), nor have
+the AI assistant's three, whose emails T-R7.23 added. Their in-app dedupe keys are
+`shared:{kind}:{resource}` and `collaborator_published:{test}:{version}`. A message item is
+`msg:{conversation}`, renewed per message (§34), and `summary.weekly` items are keyed `weekly:{isoWeek}`,
+written by the scheduler under the switch's in-app column, off by default, and never rewritten. The email
+side is §49.
+
+**The scheduler** (T-R7.14) is one loop in each API process: it reads the next due moment from the database
+at start-up and after each run and sleeps until then or six hours (`ScheduleIdle`), whichever is first;
+assignment create, update, reopen, extend and override writes wake it at once. Each run is one transaction
+under advisory lock `(73819, 42)` (§28) and processes every moment of the last 26 hours
+(`ScheduleLookback`); a run that does not get the lock tries again after 30 seconds, and a failed one after
+five minutes. An open assignment wakes it at close − 24 h, close − 1 h and, for an after-close release, at
+the close. It adds no migration; `quizzivy_app` already reads every table it names and may take advisory
+locks.
+
+## 65. Email suppressions (T-R7.15, O-R5.2, D-79)
+
+`00172_create_email_suppressions.sql` adds `app.email_suppressions`, the addresses no mail goes to:
+
+```sql
+CREATE TABLE app.email_suppressions (
+  address           text PRIMARY KEY,                -- email_suppressions_address_check: lower(btrim(address))
+  reason            text NOT NULL,                   -- email_suppressions_reason_check: bounced | complained
+  provider_event_id text NOT NULL UNIQUE,            -- the delivery's svix-id
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Written by Resend's signed webhook (`POST /public/email-events`) for a hard bounce (`email.bounced` whose
+`data.bounce.type` is `Permanent` or absent) or a complaint (`email.complained`), and only for an address
+an `app.email_outbox` row (`lower(btrim(to_address))`) or an account (`lower(email)`) holds, in the same
+statement as the insert, with `ON CONFLICT DO NOTHING`: a replay and a second event for a listed address
+change nothing, and the first reason stays. A soft bounce and an unknown address store nothing. Read by R5's
+dispatcher, which closes each due row to a listed address with `SUPPRESSED` before it claims (§49). There is
+no foreign key (D-79): a user's new email is not on the list, which is how an Admin lifts a suppression
+until a screen shows one (O-R7.3). The primary key serves the dispatcher's probe and the insert, the unique
+key the replay check; the outbox probe has no index on the address, over a table of a few thousand rows.
+
+`quizzivy_app` holds `SELECT`, `INSERT` and `DELETE` (the last for a future "lift" action), no `UPDATE`;
+`quizzivy_maintenance` holds nothing, so D16's anonymisation does not remove a suppression (O-R7.12). The
+file creates one empty table with no foreign key and locks nothing else; its Down drops it.
+
+## 66. The maintenance console's decision email (T-R7.23, O-R7.19, D-80)
+
+`00173_grant_maintenance_decision_email.sql` lets `cmd/maintenance ai-credits approve` and `decline` with
+`-apply` email the teacher, as the Admin operation does (the owner's decision of 2026-11-16). The console hands
+the decision to Notify with its email channel, which queues the row in the outbox (§49); the API's and the
+worker's dispatchers send it. The grants are what that path runs, column by column:
+
+- `SELECT (email)` on `notification_preferences` and `SELECT (locale)` on `users`, which the recipient
+  query and the outbox's INSERT read;
+- `INSERT` on the ten columns of `email_outbox` that `Outbox.Enqueue` names, and `SELECT (id, dedupe_key)`
+  for its `RETURNING id` and its fallback read by key;
+- `UPDATE` on `ai_credit_requests` narrowed from every column (00139) to `status`, `decided_by` and
+  `decided_at`, the three the decision writes.
+
+The role still cannot read, change or delete a queued row, and holds nothing on `email_suppressions` (§65).
+A `BEFORE INSERT` trigger, `email_outbox_maintenance_guard`, fires `WHEN (current_user =
+'quizzivy_maintenance')` and raises `42501` unless the row is the decision email
+(`ai_credit_request_decided`) of a request in `approved` or `declined`, with no sealed secret, `params`
+holding the request's id alone, `dedupe_key` `email:ai_decision:<request>:<teacher>`, to the teacher's own
+address. With the unique dedupe key the role can queue at most one row per decided request (D-80); what the
+email says is read again when it is sent. The function is `SECURITY INVOKER` with a pinned `search_path` and
+no `EXECUTE` for `PUBLIC`, as 00139's users guard is. `privileges_test.go` pins the grants in both
+directions, and its Down restores 00172's grants exactly.
+

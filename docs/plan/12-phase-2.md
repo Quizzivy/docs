@@ -26,7 +26,7 @@ next depends on it.
 - [ ] Test: `constraints_test.go` — an audio row with `duration_ms IS NULL` is
       rejected; an 11 MB row is rejected
 - [ ] Test: `migrate_test.go` up/down/up clean
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -139,7 +139,7 @@ next depends on it.
       audio policy is rejected by the composite FK + `CHECK` (D-05)
 - [ ] Test: `reorder_test.go` — swapping two option ordinals in one transaction
       succeeds with `SET CONSTRAINTS … DEFERRED` (D-13)
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -182,7 +182,7 @@ next depends on it.
       `current_version = 0` is rejected
 - [ ] Test: `constraints_test.go` — deleting a question still referenced by a
       draft section is blocked by `RESTRICT`
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 
@@ -219,7 +219,7 @@ next depends on it.
 - [ ] Test: `constraints_test.go` — hard-deleting a bank question nulls
       `source_question_id` and leaves the version row intact (D-07)
 - [ ] Test: `migrate_test.go` up/down/up clean
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 

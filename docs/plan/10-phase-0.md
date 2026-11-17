@@ -12,7 +12,7 @@ Branch per task off `develop` as `feature/t-0-NN-<slug>`.
 
 ---
 
-### T-0.1 — Install the Neon postgres-best-practices skill
+### T-0.1 — Install the postgres-best-practices skill
 **Depends on:** none
 **Touches:** repo root, `AGENTS.md`
 **Size:** S
@@ -106,8 +106,8 @@ service in T-0.6, which speaks the same S3 API.
       review before merge
 - [ ] `.github/pull_request_template.md` carries the §14 definition of done as
       checkboxes, plus two conditional blocks that must be deleted or ticked:
-      "DDL reviewed against §13 and the Neon skill" and "new public endpoint:
-      rate-limited and leak-reviewed (§6.5)"
+      "DDL reviewed against §13 and the `postgres-best-practices` skill" and "new
+      public endpoint: rate-limited and leak-reviewed (§6.5)"
 - [ ] The template has a **"New dependencies and why"** section (§14, §18)
 - [ ] `CONTRIBUTING.md` records the branch naming: `feature/t-<phase>-<n>-<slug>`
       off `develop`, `release/phase-<n>`, `hotfix/<slug>`
@@ -439,7 +439,7 @@ service in T-0.6, which speaks the same S3 API.
       objects behind still lets `up → down → up` pass, so checking only the ends
       would miss the most common migration mistake
 - [ ] **Mutation-tested**: removing one `DROP TYPE` from a `Down` must fail it
-- [ ] DDL reviewed against §13 and the Neon skill (§14)
+- [ ] DDL reviewed against §13 and the `postgres-best-practices` skill (§14)
 
 ---
 

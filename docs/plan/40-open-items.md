@@ -15,7 +15,7 @@ Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
 "Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
-O-R5.1 to O-R5.13, below).
+O-R5.1 to O-R5.13, R6's O-R6.1 to O-R6.10, R7's O-R7.1 to O-R7.20, below).
 
 ---
 
@@ -264,17 +264,19 @@ Worth deciding before Phase 3 rather than after.
 ---
 
 ### O-24 — Word import in production · before its pilot (W-22)
-**Decided 2026-09-25: on,** for `.docx` and text-layer PDF. `fly.toml` runs the
-worker as its own process group (`17-word-import.md` §1.40). Until then the
-default was off: `fly.toml` set no `IMPORT_*`, and the web showed no way in
-(#138).
+**Decided 2026-09-25: on,** for `.docx` and text-layer PDF. The previous host's
+config ran the worker as its own process group (`17-word-import.md` §1.40).
+Until then the default was off: that config set no `IMPORT_*`, and the web
+showed no way in (#138). (The previous host and database were retired on
+2026-11-16; production moved to a VPS on 2026-11-12.)
 
 What turning it on needed, and where each stands:
 
 - **Storage.** A private R2 bucket for imports, and an R2 token that reaches it.
   This is an account action.
-- **Cost.** A second Fly Machine for the worker. Since #143 the worker sleeps
-  until woken, so Neon's compute can still suspend while it runs.
+- **Cost.** A second machine on the previous host for the worker. Since #143
+  the worker sleeps until woken, so the previous database's compute could still
+  suspend while it ran.
 - **W-21 gates.** W-21 is in `17-word-import.md` §6, and decisions D-07 and
   D-08 are in §10:
   - D-07, capacity: still open. The quotas and concurrency ship at their
@@ -292,8 +294,8 @@ PDF needs nothing more: the worker reads it in its own WebAssembly sandbox
 `.doc` stays off either way. Its converter needs a Docker daemon, the production
 image has none, and hosting one means a separate privileged Machine. The steps
 are in `docs/setup/word-import-worker.md` § Production. `deployment_test.go` keeps
-the processing switch and the worker process together, and the deploy preflight
-refuses the switch as a Fly secret.
+the processing switch and the worker process together, and on the previous host
+the deploy preflight refused the switch as a secret.
 
 ---
 
@@ -500,7 +502,7 @@ The alternative keeps the refusal and drops the "left out" line.
 ### O-R4.4 — "Choose from Media" lists the caller's own files · R7
 **Default:** the caller's own files, under "Files you uploaded." (DG-112, DG-90).
 Files other teachers share wait for R7's sharing to cover media, and for a
-drawing.
+drawing. R7 does not share media (O-R7.7), so the default stands.
 
 ---
 
@@ -676,7 +678,7 @@ an answer that differs becomes a task in the release it names.
 
 ### O-R5.1 — Resend plan and the daily budget · before the first import by email
 **Default:** Resend's free tier, 100 emails a day and 3,000 a month. `EMAIL_DAILY_LIMIT` is 100
-(`fly.toml`) and moves the excess to the next local midnight in `APP_TIMEZONE`
+(its default) and moves the excess to the next local midnight in `APP_TIMEZONE`
 (`docs/setup/operations.md`, "Outgoing email"). Thuong decides whether to upgrade before the first
 class-sized import by email, and raises `EMAIL_DAILY_LIMIT` with the plan.
 
@@ -687,6 +689,8 @@ class-sized import by email, and raises `EMAIL_DAILY_LIMIT` with the plan.
 (`last_error_code`) and in the dispatcher's log. R7 adds Resend's signed webhook
 (`POST /public/email-events`, `RESEND_WEBHOOK_SECRET`) and `app.email_suppressions`, which the
 dispatcher skips (`70-redesign-overview.md` D9).
+**Built in R7** (T-R7.15): the dispatcher closes a due row to a listed address as failed with
+`SUPPRESSED`. What is still open is O-R7.3 and O-R7.12.
 
 ---
 
@@ -802,6 +806,7 @@ built-in Assistant, a custom role) can receive classes and tests that only an Ad
 Parking content with a reader until a new teacher arrives is legitimate and recoverable, and a map of
 kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns before the Admin
 confirms, naming the kinds the recipient cannot edit.
+
 ---
 
 ### O-R5.12 — Adding several class members at once · decided 2026-10-19 (D-054)
@@ -872,6 +877,149 @@ teacher changes the type in review.
 passages stays out of scope, and a second recording in one question outside a group would
 need a per-node play count, which is attempts work and not planned.
 
+
+---
+
+## Phase R — R7's open items (v0.14.0)
+
+R7's questions. O-R7.1 to O-R7.8 are `77-r7.md`'s "Open items"; O-R7.9 to O-R7.20 are what the
+task PRs left open (Quizzivy/api#49 to #64, Quizzivy/web#130 to #137, Quizzivy/sdk#27 to #29), moved
+here by T-R7.25. Each default is what v0.14.0 ships unless the entry says otherwise; an answer that
+differs becomes a task in the release it names. The design departures behind them are in
+`docs/design/gaps.md` (DG-90, DG-91, DG-96).
+
+### O-R7.1 — Resend plan and volume · before the deploy
+**Default:** every event's email is on. Due-soon reminders go to each student at 24 hours and 1 hour
+before their close, so a class of 30 costs about 60 emails per assignment, before results, messages,
+teachers' emails and the AI assistant's three. Notification emails share `EMAIL_DAILY_LIMIT` (100 by
+O-R5.1) with invites, set-password links and exports: account mail that is due goes first, but no
+share of the budget is kept for it, so a reset link written late on a busy day can wait until
+midnight and fail if it expires first. The release checklist measures what the last 30 days would
+have sent on a copy of the production database. **Open:** Thuong confirms the Resend plan covers it,
+or `NOTIFY_EMAIL_EVENTS` is narrowed before the deploy (the student's 1-hour reminder first).
+
+### O-R7.2 — Message retention · decided 2026-11-13 (DG-96)
+**Decided:** messages are kept while both accounts exist, and D16's anonymisation deletes an
+account's direct conversations (T-R7.12). Admin › Data & privacy says so in one read-only row
+(T-R7.22). A retention choice, a select like the card's other rows, is not planned and would need a
+design row first.
+
+### O-R7.3 — Showing a suppressed address · design (DG-96)
+**Default (built):** T-R7.15 stops mail to an address that hard-bounced or complained and logs it by
+domain; no screen shows it, and a teacher cannot tell that a student's reminders no longer arrive.
+An Admin lifts a suppression by changing the user's email, or an operator deletes the row
+(`DELETE FROM app.email_suppressions WHERE address = lower('<address>')`) once the address's owner
+asks for mail again; a complaint means they marked a message as spam. **Open:** `deck/proposals/R7 Email Status.dc.html` draws a
+warning callout in the Admin user sheet; it needs one field on the Admin's user read, which R7 does
+not add. Thuong approves the page, and a later release builds it.
+
+### O-R7.4 — Edit grantees adding questions to a set · DG-90
+**Default (built):** an edit grantee changes a set's questions and removes items, but does not add
+them; the owner adds. DG-90 is asked.
+
+### O-R7.5 — Class staff in Messages · when class staff ships (D14, DG-04)
+**Default:** a class's staff in R7 is its teacher. When assistants attach per class, they join
+channel posting and direct-message eligibility.
+
+### O-R7.6 — Auditing message activity · Thuong
+**Default (built):** no audit row for posts, reads or attachment uploads, because ids alone would
+show audit readers who wrote to whom, past D16's deletion of the thread (D17, data model D-75).
+**Open:** Thuong confirms, or asks for id-only rows with that trade-off accepted.
+
+### O-R7.7 — Shared files in "Choose from Media" · design team (DG-112, DG-90)
+**Default (built):** R7 does not share media; the media dialogs list the caller's own files. A
+file bound in shared content is readable to whoever reads that content (T-R7.7), which is not the
+same as a shared library (O-R7.15).
+
+### O-R7.8 — Remembering a former student · decided 2026-11-13, built
+**Built:** `messaging_ties` (data model §63, D-76) keeps who has taught whom from R7 on, filled at
+migration from today's members and from the audit rows of students who joined with a code. A student
+staff added and removed before R7 cannot be found as former. The student's side stays as the owner
+decided: a student writes first only to the teacher of a class they are in now and that is not
+archived (2026-11-17); a thread that exists stays open to both after the student leaves or the
+class is archived.
+
+### O-R7.9 — The switches saved before R7 · before the deploy
+**Default (built):** `00171` gives every switch saved before R7 the deck's email (data model §64),
+because R4's page saved `email = false` with every row although nobody chose it. A teacher who once
+adjusted any switch therefore starts receiving flagged, message and weekly emails, like a teacher
+who never did. **Open:** if Thuong wants pre-R7 teachers to keep email off, `00171` is dropped
+before the release.
+
+### O-R7.10 — The scheduler's dedupe keys · plan amendment
+**Default (built):** `email:due:{assignment}:{student}:{24h|1h}:{closesUnix}`,
+`email:closing:{assignment}:{teacher}:{closesUnix}`, `email:ready:{attempt}` and
+`email:weekly:{teacher}:{isoWeek}` (data model §49), where plan 77's T-R7.14 names `due:…`,
+`closing:…`, `result:…` and `weekly:…`. Naming the close lets an extended or reopened assignment
+remind again, and sharing grading's result key sends a paper one email. **Open:** Thuong agrees, and
+the plan's box reads as built.
+
+### O-R7.11 — A renewed message item and the 180 days · contract wording
+**Default (built):** a message item takes a new `id` and `created_at` at each message (data model
+§34), so its 180 days start again. The contract's `listNotifications` still says a notification
+"first written more than 180 days ago" is deleted. `NotificationKind` already says a message item is
+renewed, so the sentence holds from a client's side. **Open:** one sdk commit to say it outright.
+
+### O-R7.12 — A suppressed address after anonymisation · Thuong
+**Default (built):** a suppression is kept for good; D16's anonymisation does not remove it
+(`quizzivy_maintenance` holds nothing on `email_suppressions`). The address is personal data, and
+keeping it means a new account later made with that address still gets no mail. **Open:** whether
+anonymisation should delete it, which needs a grant for the maintenance role and a step in
+`core/maintenance/anonymize.go`.
+
+### O-R7.13 — Question sets in an account's owned content · contract
+**Default (built):** `AdminUserDetail.ownedContent` and `USER_OWNS_CONTENT`'s details have no
+`questionSets` count, though the server's guard counts a live set: a role change away from the
+teacher workspace is refused for an account that owns one, even an empty one, and the refusal can
+list every count as 0. **Open:** a contract change adding `questionSets` to both (not filed yet).
+
+### O-R7.14 — Question-set grants to colleagues who cannot write questions · access table
+**Default (built):** a set grant reaches anyone whose role opens the teacher workspace, but every
+set operation, and `listQuestions?setId=`, needs `content.questions.write`; without it the set
+answers 404 as one the caller cannot read. The share dialog still offers sets to such colleagues
+(a grading-only custom role, say). **Open:** whether the directory leaves them out for a set, or the
+dialog says why.
+
+### O-R7.15 — A grantee keeps the owner's file through a copy · accepted
+**Default (built):** a file is readable to anyone who reads content that binds it, a share
+included (`media/repositories.Readable`, T-R7.7). Make a copy keeps the files the copy binds, so
+after a revoke the colleague still reads, and can bind elsewhere, any of the owner's files a copy
+they made holds. Deleting such a file is refused with `MEDIA_IN_USE_ELSEWHERE {count}`, naming
+nothing of the copy. **Open:** Thuong accepts it, or a copy duplicates the files it binds.
+
+### O-R7.16 — The weekly summary's average percent · Thuong
+**Default (built):** no average. `summary.weekly`'s params carry `count`, `toGrade`, `flagged` and
+`classNames`, `NotificationParams` is closed, and T-R7.13's guard forbids a score in any notification
+email's params. **Open:** either the contract gains `averagePercent` for staff-only templates (an sdk
+change and a guard exemption), or plan 77's box drops the figure.
+
+### O-R7.17 — Which released results are emailed · Thuong
+**Default (built):** a result email goes for a paper with status `graded`, which only a teacher's
+Finish grading sets. R4's in-app "result ready" at an after-close release counts every paper handed
+in with no answer awaiting a mark, so a fully auto-marked paper gets the bell item at the close and no
+email. **Open:** whether the email follows R4's rule; the scheduler's release read and `Mail.Ready`
+widen together.
+
+### O-R7.18 — Message attachments: the stored name and an Admin's download · Thuong
+**Default (built):** a file's stored name ends in an extension of its sniffed type (`report` holding a
+PDF becomes `report.pdf`, `bai-tap.exe` becomes `bai-tap.exe.pdf`), and an Admin whose scope reaches a
+class downloads its channel's files, as they read the channel; never a direct message's. **Open:**
+Thuong keeps both, or asks for the uploader's name as sent and no Admin download of channel files.
+Before the release a DOCX, a DOC and a DOCM saved by Word or LibreOffice are attached once: the tests'
+Office fixtures are generated.
+
+### O-R7.19 — The maintenance console's AI decisions by email · decided 2026-11-16, built
+**Built:** the owner chose to grant it ("Cấp quyền gửi email"). `cmd/maintenance ai-credits approve`
+and `decline` with `-apply` email the teacher as the Admin operation does (T-R7.23). `00173` lets
+`quizzivy_maintenance` queue that one email and nothing else, under a guard trigger (data model §66,
+D-80), and the email dispatcher runs at least once a minute so the row goes within about a minute.
+
+### O-R7.20 — Bulk Message for a role that only reads students · Thuong
+**Default (built):** the Students page shows checkboxes only with Move, Reset or
+`people.users.manage`, so a role that reaches Messages and only reads students (the Assistant) has
+Send message in the row menu and no bulk Message, though the deck draws it with no gate. Kept so the
+Assistant's list stays plain (#285). **Open:** whether `canMessage` alone opens checkboxes.
+
 ---
 
 ## Answered during planning
@@ -892,7 +1040,7 @@ For the record, so a later session does not reopen them:
 | **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
-| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
+| **O-16** API hosting | **A VPS in Ho Chi Minh City** since 2026-11-12, with PostgreSQL 18 on the box. SPA: Cloudflare Pages. Before that the previous host in Singapore, always warm, and the previous managed database there (PG 18.6) | `docs/setup/dns.md` |
 
 ### O-23 — Retention and requested anonymization · resolved 2026-09-22 · **superseded 2026-09-26**
 
