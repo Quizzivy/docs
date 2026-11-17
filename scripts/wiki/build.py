@@ -74,6 +74,7 @@ DOCS = [
     ("docs", "docs/plan/75-r5.md", "Plan-75-R5", "75 R5: Admin console and email (v0.12.0)", "Redesign (Phase R)", None),
     ("docs", "docs/plan/76-r6.md", "Plan-76-R6", "76 R6: Question types and scoring (v0.13.0)", "Redesign (Phase R)", None),
     ("docs", "docs/plan/77-r7.md", "Plan-77-R7", "77 R7: Collaboration (v0.14.0)", "Redesign (Phase R)", None),
+    ("docs", "docs/plan/77f-f1-assignment-modes.md", "Plan-77f-F1-Assignment-Modes", "77f F1: Assignment modes", "Redesign (Phase R)", None),
     ("docs", "docs/plan/78-r8.md", "Plan-78-R8", "78 R8: Schedule (v0.15.0)", "Redesign (Phase R)", None),
     ("docs", "docs/plan/79-r9.md", "Plan-79-R9", "79 R9: Insights (v0.16.0)", "Redesign (Phase R)", None),
     ("docs", "docs/plan/80-r10.md", "Plan-80-R10", "80 R10: Learn (v0.17.0)", "Redesign (Phase R)", None),
