@@ -44,6 +44,32 @@ saving Admin, or every Admin, without a way in is refused,
 `SIGN_IN_POLICY_LOCKOUT`). `server/tests/admin_escalation_flow_test.go`, which
 drives all of it through the API as a custom role, landed with T-R5.31 (#744).
 
+**PR-7 in R7.** R7 adds three things that read the database on a clock, and each is bounded the way
+PR-7 asks:
+
+- **An open thread polls every 10 seconds** (`after` the newest message it read) through R4's
+  `useIdlePolling`, which stops after ten idle minutes and in a hidden tab, and reads again on return.
+  Unread counts ride on the 60-second summaries R4 already polls (`unreadMessages` on
+  `/teacher/summary` and `/me/summary`); the student shell polls its summary while notifications or
+  messages is on. There is no push channel and no ETag cache: R2's principal cache removes the
+  per-request permission read.
+- **The notification scheduler** (T-R7.14) wakes only when an email is due or after six hours, and
+  assignment writes nudge it; an open assignment adds at most three wakes per close (close − 24 h,
+  close − 1 h, and the close for an after-close release), each a few small queries.
+  `NOTIFY_EMAIL_EVENTS` stops the wakes of an event it turns off.
+- **The housekeeping steps** R7 adds (unsent attachments, orphaned message objects) ride the existing
+  24-hour tick, as T-R5.16's do.
+
+**The measurement.** Plan 77 measured the previous database's compute hours for the week after the
+release (NFR-A10). That database was retired on 2026-11-16, and PostgreSQL on the VPS does not
+suspend, so there is no compute-hour figure to take and the measurement is dropped. What a release
+week can still show is the load itself: the API's request log counts the thread polls
+(`GET /teacher/messages/*` and `/app/messages/*` with `after`) and the summaries per signed-in user,
+and the scheduler logs `notification schedule wrote emails=… in_app=…` after each run that wrote
+anything. A poll that keeps running for a user who has left (more than one request per 10 seconds
+per open thread, or polls past ten idle minutes) is the regression to look for. No threshold is set;
+Thuong decides whether the week's figures are wanted.
+
 ---
 
 ## R-01 — The take-test engine loses student work

@@ -5,10 +5,11 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, sixteen bounded contexts** under
+- **One process, one database, nineteen bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
   assignments, attempts, dashboard, imports, availability, access, ai,
-  notifications, organization, audit, exports. Each is one
+  notifications, organization, audit, exports, leads (R11), sharing and
+  messaging (R7). Each is one
   aggregate (dashboard is read models only; availability reads the maintenance
   windows the operator writes; access reads roles and grants, resolves who a
   request acts as, and from R5 serves the Roles page under `/admin/roles`;
@@ -20,7 +21,18 @@ the "one package per feature" layout AGENTS.md described until then.
   account ever acted before a delete and to list an account's recent actions on
   the Users detail; exports queues the Admin's data export, which the import
   worker's third runner builds, and serves it from a presigned address, up to
-  three times) and
+  three times; leads keeps the landing site's consultation requests; sharing
+  keeps the grants of `content_shares`: the colleague directory, People with
+  access, share, change, Stop sharing, Shared with me and Remove from my list,
+  reaching the tests module's owner lookup through `core/adapters.SharedContent`
+  and moving grants with R5's transfer (`OwnershipTransfer`, run last); messaging
+  holds class announcement channels and direct threads between a staff member
+  and a student (D17), with the eligibility rules as a stateless
+  `domain.Eligibility` over facts the repository reads, the staff and the
+  student side as two transports (`http.Staff`, `http.Student`) and two Go
+  projections of a message, staff attachments sniffed by `shared/filetype` and
+  served through five-minute presigned URLs, and the attempt-event cards read
+  through an attempts query behind its `ContextEvents` port) and
   exposes its operations through its own `http/` package, which core embeds
   into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
@@ -71,7 +83,22 @@ the "one package per feature" layout AGENTS.md described until then.
     paper (the assignment's creator and the teachers of a target class the
     student belongs to), which notifications use to tell exactly them; a test
     holds it equal to `Papers` over a world with every route to a student;
-  - `Roster`: the accounts an assignment is addressed to.
+  - `Roster`: the accounts an assignment is addressed to;
+  - since R7, `TestAccess`, `SetAccess`, `SharedTestIDs` and `QuestionAccess`:
+    a test's, a question set's and a bank question's access for the caller
+    (`owner` for the owner and `scope.all`, the grant's `use` or `edit`, or
+    NULL), which the tests, questions, assignments and media modules compose,
+    never `owner_id` alone;
+  - since R7, `MessagingPeerIDs` and `CanMessage`: whom a staff member may open
+    a direct thread with (a thread, a tie in `messaging_ties`, or an account
+    they created that is a student) and may write to, which identity and
+    classes read for `canMessage` on a student row and a class member.
+
+  R7 adds three more kernel packages: `shared/ties` (the one SQL that records
+  who has taught whom, called by every enrolment and change of teacher in
+  classes and identity), `shared/provenance` (a test's or question's last
+  write, which `409 STALE_WRITE` names) and `shared/filetype` (content
+  sniffing for message attachments, standard library only).
 
   identity, classes, assignments, attempts and dashboard splice them into
   their own statements, and callers lift them under `scope.all`. Like
@@ -203,6 +230,21 @@ the "one package per feature" layout AGENTS.md described until then.
   `platform/secrets`, one HKDF-SHA256 key per purpose derived from
   `SECRETS_KEY` and AES-256-GCM over each value; without the key nothing that
   needs a sealed secret can be written, and its operations answer `501`.
+- **One notification scheduler in the API** (T-R7.14). `core/jobs` runs a loop
+  in each API process that reads the next due moment from the database, sleeps
+  until then or six hours, and wakes at once on an assignment write
+  (`Assembly.ScheduleNudge`). Each run is `RunSchedule`, one transaction under
+  advisory key 42 (data model §28, §64), which writes the due emails through
+  the notifications module's email store and the weekly in-app summary. The
+  notification emails' Preparers are `core/adapters.NotificationPreparers`,
+  because an application package may not import `platform/email`.
+- **Copy-on-write is decided under the question's lock** (T-R7.6). A non-owner's
+  edit of a bank question in the context of a test or set they can edit goes
+  through `questions/repositories.WriteInContext`, after `LockForDraftUse` in
+  the same transaction; `ContextUse` counts the question's other uses, and a
+  fork is made when anything else references it. The tests module reaches it,
+  and `CopyQuestions`, through `QuestionWrites`, a port in its repository layer
+  because the calls take the repository's transaction.
 - **The worker drains three queues** (`core/jobs.ImportRunners`, in order):
   the Word imports, identity's user imports (`identity/application/worker`,
   T-R5.14) and the data exports. A queue is served only while every queue

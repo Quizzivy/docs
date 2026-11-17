@@ -23,7 +23,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D6 | API | Teaching operations move from `/admin/*` to `/teacher/*`; `/admin/*` becomes the Admin console; students stay at `/app/*`. Every operation declares `x-permission` in `api/openapi.yaml`, and one contract-driven middleware enforces it on every request. No `/v1`. |
 | D7 | Rollout | Phased releases. Production stays coherent between them: no console is half old, half new. |
 | D8 | Integrity | Follow the deck: flags, "Flagged", the red timer under five minutes, "Your teacher has been told", the wizard's defaults. The calm-integrity rule in AGENTS.md and spec §10/§12 is rewritten. |
-| D9 | Email | Resend over its HTTP API (`RESEND_API_KEY`), sending domain `quizzivy.com` verified by DNS, open and click tracking off. From R7, Resend's Svix-signed webhook reaches the open operation `POST /public/email-events` (`RESEND_WEBHOOK_SECRET`). Hard bounces and complaints add the address to `app.email_suppressions`, which the dispatcher skips. |
+| D9 | Email | Resend over its HTTP API (`RESEND_API_KEY`), sending domain `quizzivy.com` verified by DNS, open and click tracking off. From R7, Resend's Svix-signed webhook reaches the open operation `POST /public/email-events` (`RESEND_WEBHOOK_SECRET`). Hard bounces (`email.bounced` whose `bounce.type` is `Permanent` or absent) and complaints add the address to `app.email_suppressions` when an outbox row or an account holds it, and the dispatcher closes every due row to a listed address as failed (`SUPPRESSED`) instead of sending it (T-R7.15). |
 | D10 | Landing | On the apex `quizzivy.com`, from the same web build and Pages project, as a lazy public route at `/`. Signed-in visitors go to their console. The app keeps working at `app.quizzivy.com`. |
 | D11 | Copy | We write Vietnamese first and English from the deck (only Landing and Splash carry vi). Thuong reviews the new keys per PR. |
 | D12 | Add student | A new matrix row, **Create student accounts** (Admin and Teacher). A teacher creates students into their own classes. |
@@ -214,9 +214,11 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   `checkSetPasswordLink` (`POST /auth/set-password/check`), `setPasswordWithLink`
   (`POST /auth/set-password`), `getPublicOrganization` (`GET /public/organization`) and
   `getOrganizationLogo` (`GET /public/organization/logo`): eleven, as shipped, pinned by
-  `theOpenEleven` in `core/router/tests/auth_middleware_test.go`. R7 adds the Resend webhook `POST /public/email-events` (12). R11
-  adds `submitLead` (13). Each is rate-limited, leak-reviewed and added to the pinned list in its
-  own PR.
+  `theOpenEleven` in `core/router/tests/auth_middleware_test.go`. R11 added `submitLead`
+  (`POST /public/leads`, 12), which shipped first, ahead of v1.0. R7 adds the Resend webhook
+  `receiveEmailEvents` (`POST /public/email-events`, 13), limited to 120 a minute per address and
+  answering only `204` or `401`, both empty; the list is `theOpenThirteen`. Each is rate-limited,
+  leak-reviewed and added to the pinned list in its own PR.
 - `httpx.RequirePermission` replaces `RequireRole`'s `/admin/` prefix gate. It resolves the
   caller's role, permission set, `disabled_at` and session epoch on every request, from a
   10-second in-process cache keyed by user (10,000 entries, least recently used out first),
@@ -361,7 +363,7 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
 | PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logged `legacy_admin_path` and goes in v0.12.0 (T-R2.8; removed by T-R5.36, #749, after seven days of production logs held none); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
 | PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so. R5 removed the job and the legacy lookup (T-R5.1, #750) |
-| PR-7 | Polling keeps the previous database awake (it was retired on 2026-11-16; production moved to a VPS on 2026-11-12) | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
+| PR-7 | Polling keeps the previous database awake (it was retired on 2026-11-16; production moved to a VPS on 2026-11-12) | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4. R7's polling and scheduler and what replaces the measurement on the VPS: `30-risks.md`, "PR-7 in R7" |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |
 | PR-10 | Scope (eleven releases) outruns one developer | Each release is shippable alone; later modules can slip without leaving a console incoherent |
