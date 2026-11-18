@@ -310,7 +310,9 @@ and is not written yet.
 whether it counted another absence on a paper already flagged (`Milestones.AbsentAgain`); the
 announcer writes the second under `FlaggedAgainKey`, `flagged:<attemptId>:<bucket>`, where the
 bucket is the Unix time divided by 900 s, so it is a quarter of an hour on the clock, and the
-email's key carries the same bucket (`PlanEmail`). An events flush now runs in one transaction with
+email's key carries the same bucket (`PlanEmail`). The repeat is written with `Merge: Replace`, so each
+later absence in a bucket updates that bucket's notice and marks it unread again; only the email is
+sent at most once per bucket. An events flush now runs in one transaction with
 its credit of time on the paper, so a credit that fails takes the flag back with it and the retry
 reports it (`TestAFlushWhoseCreditFailsKeepsItsFlagForTheRetry`). A paper a teacher flagged by hand
 on a flexible assignment has no first notice, and its next counted absence writes a repeat.
