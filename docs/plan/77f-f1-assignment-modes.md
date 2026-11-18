@@ -204,8 +204,8 @@ lines in Quizzivy/docs#27.
 - [x] `StudentAssignmentDetail`, `StudentAssignmentCard` and `AttemptSession` carry `mode`.
 - [x] `saveAnswers` and `flushEvents` take an optional `activeMs` (integer, 0 to 600000), the
       paper's visible time since this session's previous report.
-- [x] `MonitorRow` and the teacher's `Attempt` carry `activeSeconds`, nullable: null for an
-      attempt started before F1.
+- [x] `MonitorRow` and the attempt review's response (`getAttemptForReview`) carry
+      `activeSeconds`, nullable: null for an attempt started before F1.
 - [x] `UserPreferences.assignmentDefaults` takes an optional `mode`.
 - [x] The event kinds' description names `paper_left`; `attempt.flagged`'s describes the
       flexible repeats. No enum gains a value.
@@ -327,8 +327,8 @@ on a flexible assignment has no first notice, and its next counted absence write
       `active_ms` and sets `active_reported_at = now`, in the same transaction, only while the
       attempt is in progress and only from its current session; a superseded session's report is
       dropped. A row with a null `active_ms` stays null.
-- [x] `MonitorRow.activeSeconds` and `Attempt.activeSeconds` are `active_ms / 1000`, rounded
-      down, or null. Both modes report it.
+- [x] `MonitorRow.activeSeconds` and the attempt review's `activeSeconds` are `active_ms / 1000`,
+      rounded down, or null. Both modes report it.
 - [x] A test pins the cap (a report larger than the time since the last one is cut) and the
       superseded case.
 
