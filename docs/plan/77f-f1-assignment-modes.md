@@ -33,8 +33,8 @@ steps never sit side by side unmerged.
 - Under Flexible, every attempt's deadline is its student's close (an override's later close
   included), and the student is told, on the intro and in the engine, that they may stop and come
   back before it. An early close stops new starts and never cuts an attempt in progress: one that
-  is running carries on to the close it had when it started, as under strict a running attempt keeps
-  its time (T-F1.3, As built). Whether an early close should cut flexible attempts is the owner's
+  is running keeps the deadline it has, as under strict a running attempt keeps its time (T-F1.3,
+  As built). Whether an early close should cut flexible attempts is the owner's
   question Q6 on Quizzivy/web#150, still open; the page and the web build "carry on".
 - Leaving the paper by the × is a break. The engine records it, the paper is saved, and the
   attempt resumes from Home or the intro on any device. The × leaves fullscreen
@@ -276,7 +276,7 @@ section is §67 and its row D-81 (T-F1.10).
 `Mode.Deadline` in Go and `DeadlineOf` in SQL, which `RecomputeDeadlines` uses. At a start the
 flexible close counts an early close, which only matters where a student's override lifts it; after
 the start no writer moves a deadline earlier, so an early close never cuts a flexible attempt in
-progress, which carries on to the close it had (the Deliverable, corrected). `Rules.GuardedUntil`
+progress, which keeps the deadline it has (the Deliverable, corrected). `Rules.GuardedUntil`
 is the span a start's maintenance check reads: the deadline under strict, the instant after now
 under flexible. `ScheduleWindow` recomputes a flexible deadline by `windowDeadline`, which also moves
 by the window's length a deadline an extension took past the close into the window (the decision
