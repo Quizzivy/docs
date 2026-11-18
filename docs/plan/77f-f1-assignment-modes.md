@@ -462,9 +462,12 @@ deadline rule), `docs/plan/20-data-model.md`, this file's "As built" lines
 **As built** (this pull request): The spec's changes are under "Changes pending (F1, v0.14.x)",
 beside R7's heading, and in §7 (the types), §8, §9, §10.1 to §10.4, §10.6, §12 (the ×), §13.3, §13.9
 and §15. The data model's section is §67 and its row D-81, the next free ones; §55's grant table and
-the migration inventory gain `00174`. This file gains the "As built" lines and four corrections
-found while building: maintenance and an extended deadline, the early close in the Deliverable,
-`paper_left` under flexible only, and the × for the break button.
+the migration inventory gain `00174`; §38's recompute and start race and §49's email keys name the
+flexible rule. This file gains the "As built" lines and four corrections found while building:
+maintenance and an extended deadline, the early close in the Deliverable, `paper_left` under
+flexible only, and the × for the break button. The pull request's review added two known gaps, a
+flexible start after a window was scheduled (spec §13.9) and a break returned to in the same tab
+(T-F1.8), and a docs line in the release checklist.
 
 ### T-F1.11 — Release v0.14.x
 **Depends on:** every task above
