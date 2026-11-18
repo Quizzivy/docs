@@ -3717,7 +3717,9 @@ the row is closed with `failed_at` and `last_error_code = 'SKIPPED'`, spends no 
 any failed row. A submissions digest's params name the papers announced in its bucket (`attemptIds`), which
 are the ones it counts. Their dedupe keys begin `email:`:
 
-- Notify's (T-R7.13): `email:flagged:{attempt}:{user}`, `email:extended:{assignment}:{user}:{closesUnix}`,
+- Notify's (T-R7.13): `email:flagged:{attempt}:{user}` (plus `:{bucket}`, the Unix time divided by 900 s,
+  for a later counted absence on a flagged flexible paper, F1, §67; `FlaggedAgainBucket`),
+  `email:extended:{assignment}:{user}:{closesUnix}`,
   `email:ready:{attempt}`, `email:submitted:{assignment}:{user}:{bucketUnix}` (plus `:{attempt}` for a paper
   announced after its bucket's email went), `email:message:{conversation}:{user}:{lastClosedId|first}`,
   `email:shared:{kind}:{resource}:{user}:{minute}`, `email:teacher_changed:{class}:{user}:{minute}`;
