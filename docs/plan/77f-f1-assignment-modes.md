@@ -289,8 +289,8 @@ A duplicate copies the mode. The `/app/*` leak review's line for `mode` is the r
 and is not written yet.
 
 A window already scheduled now moves a flexible attempt that starts after it, or whose deadline a
-writer moves after it (on `feature/t-f1-03-flexible-start-window` in Quizzivy/api, from
-`work/flex-f1` at 4272cb44; PR to open). `schedule.FlexibleWindowDeadline`
+writer moves after it (Quizzivy/api#76 into
+`work/flex-f1`, open). `schedule.FlexibleWindowDeadline`
 (`shared/schedule/windows.go`) is the flexible branch of `windowDeadline`, moved there verbatim, and
 `windowDeadline` is built from it, so scheduling, the start and the writers share one expression.
 `committedRules` (`attempts/repositories/store.go`) passes a flexible start's deadline through
@@ -449,8 +449,8 @@ pass the close.
 
 A return in the same tab writes neither event: the tab still holds its session (spec §10.6), so
 "Tiếp tục làm bài" only reads the attempt with it and resumes nothing. The engine therefore records
-a client event of its own, `paper_returned` (on `feature/t-f1-09-flexible-e2e` in Quizzivy/web,
-with T-F1.9). `recordPaperLeft` marks the buffer's session as on a break (`openBreak` in
+a client event of its own, `paper_returned` (Quizzivy/web#153, with
+T-F1.9). `recordPaperLeft` marks the buffer's session as on a break (`openBreak` in
 `integrity/buffer.ts`), stored with the buffer; when `useIntegrityMonitor` begins the same session
 again it clears the mark and records `paper_returned` once, with the question on screen
 (`closeBreak`). A buffer begun for another session drops the mark, since the server's `resume` ends
@@ -475,8 +475,9 @@ records no `paper_returned`.
       flag, one notice per 15-minute bucket, the break on the timeline and both times.
 - [ ] A live E2E lets a flexible attempt reach its close and finds it `timed_out`.
 
-**As built:** in progress on `feature/t-f1-09-flexible-seed` (api) and
-`feature/t-f1-09-flexible-e2e` (web), not yet in a pull request. The web branch also carries the
+**As built:** the seed is Quizzivy/api#75, merged into `work/flex-f1` at d08ee2ed
+(`seed/12-dev-flexible.sql`, assignment `…1201`); the E2E is Quizzivy/web#153 into `work/flex-f1`,
+open. The web branch also carries the
 same-tab return (T-F1.8, As built). `flexible.live.spec.ts`'s close test takes a break by the ×,
 comes back through the intro's "Tiếp tục làm bài" in the same tab and finds `paper_returned` on the
 server with no `resume` or `session_takeover` after the break, then takes a second break that
