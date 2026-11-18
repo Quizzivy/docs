@@ -346,19 +346,22 @@ list and detail chips, `features/settings/sections/AssignmentDefaults.tsx`,
 `lib/i18n/locales/{vi,en}/teacher.json`
 **Size:** M
 **Done when:**
-- [ ] The Mode choice is drawn as on the F1 page; the draft starts from the teacher's default mode,
+- [x] The Mode choice is drawn as on the F1 page; the draft starts from the teacher's default mode,
       else strict.
-- [ ] Under flexible the time limit row and the two leaving controls are not shown, and the body
+- [x] Under flexible the time limit row and the two leaving controls are not shown, and the body
       still sends the stored `durationMinutes`, `maxFocusLoss` and `onLimitExceeded` unchanged.
-- [ ] The Settings tab shows the mode in the Test & timing group and locks it with that group; a
+- [x] The Settings tab shows the mode in the Test & timing group and locks it with that group; a
       `409 ASSIGNMENT_LOCKED` on the mode says so in the group's error line.
 - [ ] Vietnamese is written first and every new key is listed in the pull request.
 
-**As built** (Quizzivy/web#152, open): The mode heads the Schedule step's timing rules, after the
-window. Under flexible the Rules step keeps the stepper for the seconds an absence needs (T-F1.0,
-As built). The Settings tab locks the mode with "Đề và thời gian" while open and, once any attempt
-exists, whatever the status, as the server does. Settings › Assignment defaults stores the mode
-beside the five others.
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The mode heads the
+Schedule step's timing rules, after the window. Under flexible the Rules step keeps the stepper for
+the seconds an absence needs (T-F1.0, As built), which is not one of the two leaving controls. The
+Settings tab locks the mode with "Đề và thời gian" while open and, once any attempt exists, whatever
+the status, as the server does; a refused save shows the server's message in the dialog's error
+line. Settings › Assignment defaults stores the mode beside the five others. The pull request lists
+no new locale key, so the last box is not met as written; the keys are its diffs of the `vi` and
+`en` locale files.
 
 ### T-F1.7 — The student: intro, engine, leaving and resuming
 **Depends on:** T-F1.0, T-F1.1, T-F1.0b
@@ -368,20 +371,22 @@ beside the five others.
 `lib/i18n/locales/{vi,en}/{student,common}.json`
 **Size:** M
 **Done when:**
-- [ ] Under flexible the intro's rules say the student may stop and come back until the close, and
+- [x] Under flexible the intro's rules say the student may stop and come back until the close, and
       never that the clock does not stop; strict copy is unchanged.
-- [ ] Under flexible the header shows the close as on the F1 page, and the engine submits
+- [x] Under flexible the header shows the close as on the F1 page, and the engine submits
       `timer_expired` at that deadline exactly as today.
-- [ ] Under flexible the leave dialog is a break ("Tạm nghỉ"), the × records `paper_left` before
+- [x] Under flexible the leave dialog is a break ("Tạm nghỉ"), the × records `paper_left` before
       it leaves, and Home's card and the intro resume the attempt.
-- [ ] Under flexible the strike dialog says the absence is recorded and the teacher told, with no
+- [x] Under flexible the strike dialog says the absence is recorded and the teacher told, with no
       allowance and no submit; `useIntegrityAutoSubmit` never fires.
-- [ ] In both modes the engine adds up the paper's visible time, sends it as `activeMs` with each
+- [x] In both modes the engine adds up the paper's visible time, sends it as `activeMs` with each
       save and with the `pagehide` beacon, and saves at least once a minute while the paper is
       visible and time has accrued.
-- [ ] Unit tests cover each line above; the engine's existing strict tests pass unedited.
+- [x] Unit tests cover each line above; the engine's existing strict tests pass unedited.
 
-**As built** (Quizzivy/web#152, open into `work/flex-f1`, with T-F1.6 and T-F1.8): The × records
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4, with T-F1.6 and T-F1.8):
+No assertion of an existing strict test changed: the engine's shared fixtures gain `mode: "strict"`,
+and `deadline.test.ts` gains a block of its own for a close weeks away. The × records
 `paper_left` under flexible only, once the leave has saved the answers and just before it goes Home;
 the browser's back button and other ways out record none. The copy names the button × ("nút ×"),
 which the font draws. The header pill shows the close until the last hour, and a close further than
@@ -399,16 +404,16 @@ browser takes the beacon, and a manual hand-in reports it first.
 `web/src/features/notifications/kinds.ts`, `lib/i18n/locales/{vi,en}/{teacher,common}.json`
 **Size:** M
 **Done when:**
-- [ ] The monitor and the attempt sheet show time on the paper and from start to hand-in, as on the
+- [x] The monitor and the attempt sheet show time on the paper and from start to hand-in, as on the
       F1 page; an attempt with `activeSeconds` null shows the second only, as today.
-- [ ] The timeline shows the date on the first event of each day once an attempt spans more than
+- [x] The timeline shows the date on the first event of each day once an attempt spans more than
       one, and draws `paper_left` followed by `resume` as a break, in the neutral tone.
-- [ ] A repeated `attempt.flagged` reads with its new count; the danger tone and "Flagged" are as
+- [x] A repeated `attempt.flagged` reads with its new count; the danger tone and "Flagged" are as
       today.
 
-**As built** (Quizzivy/web#152, open): The two times show the span under time on the paper only when
-the two differ by a minute or more, and the roster's column takes its new name once any row reports
-time on the paper. A break on the timeline runs to the next `resume` or `session_takeover`. Under
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The two times show the
+span under time on the paper only when the two differ by a minute or more, and the roster's column
+takes its new name once any row reports time on the paper. A break on the timeline runs to the next `resume` or `session_takeover`. Under
 flexible, Close early says students mid-test carry on until the planned close, and the attempt
 extension says the deadline moves at once and can pass the close.
 
