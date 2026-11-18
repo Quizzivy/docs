@@ -2615,8 +2615,9 @@ is one screen ("A cloze" below).
   unsaved and goes to `/`; a save that fails keeps the student on the paper.
   Below 768 the header has no save line. A strip under it carries one only when
   a save has failed or the device is offline with an answer unsaved, never for
-  a save on its way, and carries the strike count where the assignment sets a
-  limit (§10.2). A locked paper (taken over, out of time, ended) says why in a
+  a save on its way, and carries the strike count where a strict assignment
+  sets a limit, or under a flexible one (F1) the line that the teacher has been
+  told, once an absence has been counted (§10.2). A locked paper (taken over, out of time, ended) says why in a
   bar under the header at every width. Once the server has said the time is
   up, the timer and the Submit dialog's time left read 00:00. A deadline lock
   rearms automatic submission at the device's recorded deadline, whichever
