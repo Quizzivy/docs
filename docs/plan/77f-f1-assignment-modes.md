@@ -416,8 +416,8 @@ browser takes the beacon, and a manual hand-in reports it first.
       today.
 
 **As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The two times show the
-span under time on the paper only when the two differ by a minute or more, and the roster's column
-takes its new name once any row reports time on the paper. A break on the timeline runs to the next `resume` or `session_takeover`. Under
+span under time on the paper only when the two round to a different number of minutes, and the
+roster's column takes its new name once any row reports time on the paper. A break on the timeline runs to the next `resume` or `session_takeover`. Under
 flexible, Close early says students mid-test carry on until the planned close, and the attempt
 extension says the deadline moves at once and can pass the close.
 
