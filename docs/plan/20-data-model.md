@@ -1452,6 +1452,7 @@ listed here matches the spec.
 | D-78 | `00167` adds two deferred fill triggers for `messaging_ties`, although plan 77 says R7 needs none; R8's contract step drops them | The R6 binary serves between the migration and the swap and writes no tie, and `messaging-peer` reads only ties, conversations and `created_by`, so a student R6 enrolled in that window would be unreachable |
 | D-79 | `email_suppressions` is keyed by the address, with no foreign key to `users`, and holds only an address an outbox row or an account already has (`00172`, §65) | Resend reports an address, not an account. A user whose email changes is no longer suppressed, which is how an Admin lifts a suppression today (O-R7.3); an address Quizzivy never held is not stored |
 | D-80 | `quizzivy_maintenance` may queue one email, the credit decision of a request it decided, and nothing else (`00173`, §66) | The owner's decision of 2026-11-16 (O-R7.19): the console's approve and decline email the teacher as the Admin operation does. A guard trigger ties each row to a decided request, its teacher's own address and the decision's own dedupe key, so a leaked credential can mail no one else, take no other email's key and spend no budget |
+| D-81 | `00174`'s Down refuses while a flexible assignment exists, and drops `attempts.active_ms` and `active_reported_at` without a check (§67) | The v0.14.0 binary would read a flexible assignment as strict: it would apply the leaving rule its teacher turned off and time each new attempt from its start, while each attempt in progress kept its deadline at the close. The mode cannot be rebuilt once the column goes, so the Down refuses as `00147`'s does for a word limit. Time on the paper is display only, so losing it refuses nothing |
 
 ---
 
@@ -1623,6 +1624,7 @@ the file it adds.
 | `00171_reset_pre_r7_notification_emails.sql` | data only: the deck's email for the switches saved before R7 | T-R7.13 |
 | `00172_create_email_suppressions.sql` | `email_suppressions`; `UPDATE` revoked from the app role | T-R7.15, D-79 |
 | `00173_grant_maintenance_decision_email.sql` | `quizzivy_maintenance` may queue the credit decision email: column grants on `notification_preferences`, `users` and `email_outbox`, `UPDATE` on `ai_credit_requests` narrowed to three columns, the `email_outbox_maintenance_guard` trigger | T-R7.23, O-R7.19, D-80 |
+| `00174_assignment_modes.sql` | enum `app.assignment_mode`; `assignments.mode`, default `strict`; nullable `attempts.active_ms` (`attempts_active_ms_check`, `NOT VALID` then validated) and `active_reported_at`; `SELECT (mode)` on `assignments` to `quizzivy_maintenance`; Down refuses while a flexible assignment exists; `lock_timeout` 5 s | F1 (T-F1.2), D-81, §67 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4097,7 +4099,7 @@ for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`, �
 |---|---|---|---|
 | `organization_settings` | `SELECT` | the three retention columns | the sweep, `retain-integrity` |
 | `attempts` | `SELECT`, `UPDATE` | `id, assignment_id, student_id, status, submitted_at, deadline_at`; `deadline_at` | the sweep and `anonymize-user` read; `window-schedule` extends |
-| `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`; `closes_at` | the same |
+| `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`, and `mode` since `00174` (§67); `closes_at` | the same; `window-schedule` reads `mode` |
 | `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers and events steps read a student's own close; `window-schedule` (T-R4.12b) extends |
 | `attempt_answers` | `SELECT`, `UPDATE` | `attempt_id, question_id, payload`; `payload` | the answers step |
 | `attempt_events` | `SELECT`, `DELETE` | `id, attempt_id, received_at` | the events step |
@@ -4637,3 +4639,47 @@ email says is read again when it is sent. The function is `SECURITY INVOKER` wit
 no `EXECUTE` for `PUBLIC`, as 00139's users guard is. `privileges_test.go` pins the grants in both
 directions, and its Down restores 00172's grants exactly.
 
+## 67. Assignment modes and time on the paper (T-F1.2, D-81)
+
+`00174_assignment_modes.sql` adds F1's mode to assignments and the time on the paper to attempts
+(`docs/plan/77f-f1-assignment-modes.md`, spec §10.2, §10.6 and §13.3):
+
+```sql
+CREATE TYPE app.assignment_mode AS ENUM ('strict', 'flexible');
+
+ALTER TABLE app.assignments ADD COLUMN mode app.assignment_mode NOT NULL DEFAULT 'strict';
+
+ALTER TABLE app.attempts
+  ADD COLUMN active_ms bigint,                 -- attempts_active_ms_check: active_ms >= 0
+  ADD COLUMN active_reported_at timestamptz;
+
+GRANT SELECT (mode) ON app.assignments TO quizzivy_maintenance;
+```
+
+- **`assignments.mode`.** `strict` is the product as it was at v0.14.0; `flexible` makes an attempt's
+  deadline its student's close and never acts on an absence. The default is a constant, which
+  PostgreSQL 18 stores as metadata, so no row is rewritten, every existing assignment reads strict,
+  and the v0.14.0 binary's insert, which names no such column, writes strict during the rolling
+  deploy. `duration_minutes` and the leaving rule (`integrity_max_focus_loss`,
+  `integrity_on_limit_exceeded`) stay `NOT NULL` and are stored, unapplied, under flexible: a nullable
+  time limit would break the v0.14.0 binary's scan and a required response field. `app` now holds seven
+  enum types (`migrate_test.go`).
+- **`attempts.active_ms` and `active_reported_at`.** The paper's visible time as the engine reports it,
+  capped by the server's clock, and the moment of the current session's last report. NULL is "not
+  measured": a row from before F1, and one the v0.14.0 binary inserts during the deploy, which names
+  neither column. A start writes `0` and its `started_at`. A resume moves `active_reported_at` to its
+  time on a measured row and leaves a NULL one NULL. A save or an events flush that names `activeMs`
+  adds `least(activeMs, now − active_reported_at + 5 s)`, never below zero, and sets
+  `active_reported_at = now`, in the transaction that writes the request, only while the attempt is `in_progress`, its
+  deadline has not passed and the request's session is the current one (`creditActive`). The monitor
+  and the attempt review read `active_ms / 1000`.
+- **The check** is added `NOT VALID` and validated in the same file, as `00147` does: every row is
+  NULL, so the validation finds nothing. `lock_timeout` is 5 s in the Up and the Down, so a lock the
+  file cannot get fails it at once rather than queueing writers behind the `ACCESS EXCLUSIVE` its
+  `ALTER`s take. The file adds no index.
+- **The grant.** `cmd/maintenance window-schedule` recomputes a flexible attempt's deadline from its
+  student's close instead of adding the window's length (spec §13.9), so it reads `mode` beside the
+  columns `00139` grants (§55). `privileges_test.go` pins it.
+- **The Down** refuses while a flexible assignment exists (D-81); otherwise it revokes the grant and
+  drops the two attempt columns, the mode and the type. goose up, down and up runs in CI, and
+  `TestTheAssignmentModesRollbackRefusesWhileAFlexibleAssignmentExists` pins the refusal.
