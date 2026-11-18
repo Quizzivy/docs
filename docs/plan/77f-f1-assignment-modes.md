@@ -137,11 +137,13 @@ left out because they drift.
   was visible and sends it with each save; the server never credits more than the time since that
   session's previous report, plus 5 seconds.
 - **Maintenance treats a flexible attempt by its close.** A flexible start is refused only while a
-  window is under way, and scheduling a window moves a flexible attempt's deadline only by
-  recomputing it from its student's close, which the same statement moves when the close falls
-  inside the window. A deadline that a teacher's extension (`extendAttempt`) took past the close,
-  and that falls inside the window, moves by the window's length, so the extension is kept; a
-  flexible deadline never moves earlier (`core/maintenance/windows.go`, `windowDeadline`).
+  window is under way. Scheduling a window sets a flexible attempt's deadline to the latest of
+  three: the deadline itself, moved by the window's length when it falls inside the window, so a
+  teacher's extension (`extendAttempt`) past the close is kept; the assignment's close; and the
+  student's override's close, each of the two closes moved as the same statement moves it. The
+  deadline can therefore move by less than the window's length, when only the assignment's close
+  falls inside the window and an override's later close was the student's close, and it never
+  moves earlier (`core/maintenance/windows.go`, `windowDeadline`).
 - **The mode locks with the time limit.** Changing it answers `409 ASSIGNMENT_LOCKED` while the
   assignment is open or once any attempt exists: an attempt never changes mode under a student.
 
