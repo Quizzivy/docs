@@ -30,11 +30,14 @@ steps never sit side by side unmerged.
 - A **Mode** choice in the assignment wizard and in the Settings tab: Strict (the default) or
   Flexible. Under Flexible the time limit, "Rời khỏi bài" and "Khi vượt giới hạn" are not asked;
   fullscreen and copy-and-paste stay the teacher's switches.
-- Under Flexible, every attempt's deadline is its student's close (an override and an early close
+- Under Flexible, every attempt's deadline is its student's close (an override's later close
   included), and the student is told, on the intro and in the engine, that they may stop and come
-  back before it.
-- Leaving the paper by the ✕ is a break. The engine records it, the paper is saved, and the
-  attempt resumes from Home or the intro on any device. The ✕ leaves fullscreen
+  back before it. An early close stops new starts and never cuts an attempt in progress: one that
+  is running keeps the deadline it has, as under strict a running attempt keeps its time (T-F1.3,
+  As built). Whether an early close should cut flexible attempts is the owner's
+  question Q6 on Quizzivy/web#150, still open; the page and the web build "carry on".
+- Leaving the paper by the × is a break. The engine records it, the paper is saved, and the
+  attempt resumes from Home or the intro on any device. The × leaves fullscreen
   (T-F1.0b, already asked for outside F1).
 - Integrity under Flexible: every signal is recorded as today, the first counted absence flags the
   attempt and tells the teacher, later ones tell the teacher again at most every 15 minutes, and
@@ -74,7 +77,7 @@ left out because they drift.
   Nothing pauses, and nothing measures working time: the teacher's "time" is
   `submittedAt − startedAt` (`web/src/features/assignments/pages/teacher/assignmentDetail.ts`,
   `elapsedMinutes`).
-- **Leaving and resuming already work.** The ✕ saves and goes Home (`useLeave.ts`); Home's
+- **Leaving and resuming already work.** The × saves and goes Home (`useLeave.ts`); Home's
   `ResumeCard` and the intro's "Tiếp tục làm bài" call `continueAttempt`; a resume from another
   device issues a new session and writes `resume`, plus `session_takeover` when the old session
   was live in the last two minutes (`attempts/repositories/store.go`, `Resume`). The clock keeps
@@ -117,19 +120,32 @@ left out because they drift.
   tab that sends them cannot turn an action back on.
 - **No new notification kind.** A new value of `NotificationKind`, a response enum, is breaking
   (the SDK README). Flexible reuses `attempt.flagged`, whose `focusLost` already carries the
-  count, with a second dedupe key per 15-minute bucket for the repeats.
-- **A break is the ✕, not a state.** There is no `paused` status: an attempt stays `in_progress`
+  count, with a second dedupe key per 15-minute bucket for the repeats. A bucket is a quarter of
+  an hour on the clock (`FlaggedAgainKey`, the Unix time divided by 900 s), not 15 minutes from the
+  last notice, so two notices can fall minutes apart across a boundary; "at most once every 15
+  minutes" below means once per bucket.
+- **The break button is written × (U+00D7).** Be Vietnam Pro has no ✕ (U+2715), and spec §12
+  keeps every character the UI draws in the loaded faces (`font-coverage.test.ts`), so the copy
+  that names the button writes ×, and so do this file and the spec.
+- **A break is the ×, not a state.** There is no `paused` status: an attempt stays `in_progress`
   until it is handed in or its deadline passes, exactly as today. What changes is the deadline
-  and the copy. The ✕ writes a client event `paper_left` (the event log is not an enum), so the
-  teacher's timeline can show the break.
+  and the copy. Under flexible the × writes a client event `paper_left` (the event log is not an
+  enum), so the teacher's timeline can show the break; under strict the × is leaving, as today,
+  and records no `paper_left` (T-F1.7).
 - **Time on the paper is reported by the engine and capped by the server.** Derived only from
   events, a sitting that ends with a closed lid has no end. The engine adds up the time the paper
   was visible and sends it with each save; the server never credits more than the time since that
   session's previous report, plus 5 seconds.
 - **Maintenance treats a flexible attempt by its close.** A flexible start is refused only while a
-  window is under way, and scheduling a window moves a flexible attempt's deadline only by
-  recomputing it from its student's close, which the same statement moves when the close falls
-  inside the window.
+  window is under way. Scheduling a window sets a flexible attempt's deadline to the latest of
+  three: the deadline itself, moved by the window's length when it falls inside the window, so a
+  teacher's extension (`extendAttempt`) past the close is kept; the assignment's close; and the
+  student's override's close, each of the two closes moved as the same statement moves it. The
+  deadline can therefore move by less than the window's length, when only the assignment's close
+  falls inside the window and an override's later close was the student's close, and it never
+  moves earlier (`core/maintenance/windows.go`, `windowDeadline`). A flexible attempt that starts
+  after the window was scheduled, or whose deadline a writer moves after that, goes through the
+  same rule, so it ends as if it had been running when the window was scheduled (T-F1.3, As built).
 - **The mode locks with the time limit.** Changing it answers `409 ASSIGNMENT_LOCKED` while the
   assignment is open or once any attempt exists: an attempt never changes mode under a student.
 
@@ -158,10 +174,17 @@ left out because they drift.
       the "Quizzivy mockups" canvas. Questions it leaves go on a "questions for the owner" issue
       for F1.
 
+**As built** (Quizzivy/web#151, open): The page is drawn as DG-232 and published to the "Quizzivy
+mockups" canvas; its pull request into `develop` is still open, and its questions for the owner are
+Quizzivy/web#150, also open, so T-F1.6 to T-F1.8 built the page's drawn answers. One difference from
+the Done-when above, the page's Q2: the Rules step under flexible keeps the stepper for the seconds
+an absence needs ("Bỏ qua lần rời ngắn", `minAwayMs`) beside fullscreen and copy and paste, since it
+still decides what is counted.
+
 ### T-F1.0b — Fullscreen is left on every way out (outside F1)
 Asked by the owner on 2026-11-17, while F1 was being planned, and built on its own from `develop`
 (a web change and its spec lines, no contract), so it ships with the first release after it is
-merged. Recorded here because the break depends on it: the ✕ and any navigation away from the
+merged. Recorded here because the break depends on it: the × and any navigation away from the
 paper leave the fullscreen the engine asked for, a submit of any kind already does, Home's
 "Tiếp tục làm bài" enters fullscreen again when the paper asks for it, and an intro start that the
 server refuses leaves the fullscreen its click entered. Built in Quizzivy/web#144, with its spec
@@ -174,23 +197,32 @@ lines in Quizzivy/docs#27.
 **Touches (Quizzivy/sdk):** `api/openapi.yaml`, `sdk/`
 **Size:** S
 **Done when:**
-- [ ] `AssignmentMode` is `strict | flexible`. `Assignment.mode` is required in the response;
+- [x] `AssignmentMode` is `strict | flexible`. `Assignment.mode` is required in the response;
       `AssignmentInput.mode` is optional, strict when omitted on create, the stored value when
       omitted on update.
-- [ ] `Assignment.durationMinutes` and `IntegrityPolicy.maxFocusLoss` / `onLimitExceeded` say they
+- [x] `Assignment.durationMinutes` and `IntegrityPolicy.maxFocusLoss` / `onLimitExceeded` say they
       are stored and not applied under flexible; `Assignment`'s deadline rule reads "the student's
       close under flexible".
-- [ ] `StudentAssignmentDetail`, `StudentAssignmentCard` and `AttemptSession` carry `mode`.
-- [ ] `saveAnswers` and `flushEvents` take an optional `activeMs` (integer, 0 to 600000), the
+- [x] `StudentAssignmentDetail`, `StudentAssignmentCard` and `AttemptSession` carry `mode`.
+- [x] `saveAnswers` and `flushEvents` take an optional `activeMs` (integer, 0 to 600000), the
       paper's visible time since this session's previous report.
-- [ ] `MonitorRow` and the teacher's `Attempt` carry `activeSeconds`, nullable: null for an
-      attempt started before F1.
-- [ ] `UserPreferences.assignmentDefaults` takes an optional `mode`.
-- [ ] The event kinds' description names `paper_left`; `attempt.flagged`'s describes the
+- [x] `MonitorRow` and the attempt review's response (`getAttemptForReview`) carry
+      `activeSeconds`, nullable: null for an attempt started before F1.
+- [x] `UserPreferences.assignmentDefaults` takes an optional `mode`.
+- [x] The event kinds' description names `paper_left`; `attempt.flagged`'s describes the
       flexible repeats. No enum gains a value.
-- [ ] `make gen` is its own commit; `make sdk-check` passes without `contract-breaking`.
+- [x] `make gen` is its own commit; `make sdk-check` passes without `contract-breaking`.
 - [ ] The api pull request on this contract (T-F1.2 onward) is green before this one merges
       (D-082 (iii)).
+
+**As built** (Quizzivy/sdk#32, merged; `@quizzivy/sdk` 0.14.1-dev.202611180258.g7aa52cc): The
+contract is as above, with `ActiveMsInput` and `ActiveSeconds` as schemas of their own, and one
+difference: `activeSeconds` is on `MonitorRow` and on the attempt review's response
+(`getAttemptForReview`, beside `integrity`), not on the `Attempt` schema. `IntegrityEventInput.kind`
+names `paper_left` as the student leaving "by its ✕ (a break under `flexible`)": it writes ✕ for the
+×, and the engine records it under flexible only (T-F1.7). `make gen` is commit 67197a3, and
+`make sdk-check` passed without the label locally. The owner merged it before the api pull request
+on it was opened; Quizzivy/api#74 then pinned its `-dev` build, so the last box is not met as written.
 
 ### T-F1.2 — Migration: the mode and time on the paper
 **Depends on:** T-F1.1
@@ -198,16 +230,25 @@ lines in Quizzivy/docs#27.
 `server/internal/platform/db/tests/`
 **Size:** S
 **Done when:**
-- [ ] `CREATE TYPE app.assignment_mode AS ENUM ('strict', 'flexible')`;
+- [x] `CREATE TYPE app.assignment_mode AS ENUM ('strict', 'flexible')`;
       `assignments.mode app.assignment_mode NOT NULL DEFAULT 'strict'`. A constant default is
       metadata only on PostgreSQL 18: no rewrite, and the v0.14.0 insert, which names no such
       column, writes strict.
-- [ ] `attempts.active_ms bigint NULL CHECK (active_ms >= 0)` and
+- [x] `attempts.active_ms bigint NULL CHECK (active_ms >= 0)` and
       `attempts.active_reported_at timestamptz NULL`. Null is "not measured": rows from before F1
       and rows the v0.14.0 pod inserts during the deploy.
-- [ ] The down migration drops both columns and the type. goose up/down/up passes, and an
+- [x] The down migration drops both columns and the type. goose up/down/up passes, and an
       integration test inserts an assignment and an attempt the v0.14.0 way.
-- [ ] `20-data-model.md` gains the section and its D-row (T-F1.10).
+- [x] `20-data-model.md` gains the section and its D-row (T-F1.10).
+
+**As built** (Quizzivy/api#74, merged into `work/flex-f1` at 4272cb44): `00174_assignment_modes.sql`.
+The check on `active_ms` is added `NOT VALID` and validated in the same file, with `lock_timeout` at
+5 s, and the file grants `quizzivy_maintenance` `SELECT (mode)` on `assignments`, which
+`window-schedule` reads (T-F1.3). The Down refuses while a flexible assignment exists, as `00147`
+refuses for a word limit: the v0.14.0 binary would read it as strict. It drops the time on the paper
+without a check. `TestARowInsertedTheV0140WayReadsStrictAndUnmeasured` and
+`TestTheAssignmentModesRollbackRefusesWhileAFlexibleAssignmentExists` pin both. The data model's
+section is §67 and its row D-81 (T-F1.10).
 
 ### T-F1.3 — Assignments: mode, deadlines, lock, defaults
 **Depends on:** T-F1.2
@@ -217,21 +258,58 @@ lines in Quizzivy/docs#27.
 (`/app/assignments`, `/app/assignments/{id}`), `modules/identity` preferences
 **Size:** M
 **Done when:**
-- [ ] The mode is read and written with the assignment; a create without it is strict.
-- [ ] `Rules.Deadline` under flexible is the student's close (an override's later close and an
+- [x] The mode is read and written with the assignment; a create without it is strict.
+- [x] `Rules.Deadline` under flexible is the student's close (an override's later close and an
       early close included); an override's `durationMinutes` is not applied under flexible.
-- [ ] `schedule.RecomputeDeadlines` uses the same rule, so an extension, a reopen or an override
+- [x] `schedule.RecomputeDeadlines` uses the same rule, so an extension, a reopen or an override
       moves a flexible attempt to its student's new close, and still never earlier.
-- [ ] A flexible start is refused only while a maintenance window is under way; scheduling a
+- [x] A flexible start is refused only while a maintenance window is under way; scheduling a
       window recomputes flexible attempts from their close instead of adding its length. A strict
       attempt is treated as today. Each is a test.
-- [ ] `requireUnlocked` refuses a mode change with `409 ASSIGNMENT_LOCKED` while open or once any
+- [x] `requireUnlocked` refuses a mode change with `409 ASSIGNMENT_LOCKED` while open or once any
       attempt exists; a change before the open is accepted.
 - [ ] The student read models and `AttemptSession` carry `mode`; the `/app/*` leak review lists
       the one field added.
-- [ ] `assignmentDefaults.mode` is stored and returned.
-- [ ] `extendAttempt` keeps working under flexible: it moves that attempt's deadline past the
+- [x] `assignmentDefaults.mode` is stored and returned.
+- [x] `extendAttempt` keeps working under flexible: it moves that attempt's deadline past the
       close, as an intervention, and is audited as today.
+
+**As built** (Quizzivy/api#74): `schedule.Mode` (`shared/schedule/mode.go`) holds the rule once:
+`Mode.Deadline` in Go and `DeadlineOf` in SQL, which `RecomputeDeadlines` uses. At a start the
+flexible close counts an early close, which only matters where a student's override lifts it; after
+the start no writer moves a deadline earlier, so an early close never cuts a flexible attempt in
+progress, which keeps the deadline it has (the Deliverable, corrected). `Rules.GuardedUntil`
+is the span a start's maintenance check reads: the deadline under strict, the instant after now
+under flexible. `ScheduleWindow` recomputes a flexible deadline by `windowDeadline`, which also moves
+by the window's length a deadline an extension took past the close into the window (the decision
+"maintenance by close", corrected). A mode change is `ErrModeLocked`, a `409 ASSIGNMENT_LOCKED`
+with its own message; the row and whether any attempt exists are read under the row's lock, in two
+statements, so a start racing the change is seen (`TestAStartTheModeChangeWaitedOnLocksTheMode`).
+A duplicate copies the mode. The `/app/*` leak review's line for `mode` is the release checklist's
+and is not written yet.
+
+A window already scheduled now moves a flexible attempt that starts after it, or whose deadline a
+writer moves after it (Quizzivy/api#76 into
+`work/flex-f1`, open). `schedule.FlexibleWindowDeadline`
+(`shared/schedule/windows.go`) is the flexible branch of `windowDeadline`, moved there verbatim, and
+`windowDeadline` is built from it, so scheduling, the start and the writers share one expression.
+`committedRules` (`attempts/repositories/store.go`) passes a flexible start's deadline through
+`schedule.ThroughWindows` after the start guard, which holds the windows lock shared, so the
+windows it reads (`schedule.WindowsAhead`: not cancelled, not ended) cannot change before the
+commit; each window ahead moves it in turn, the earliest first. `RecomputeDeadlines` then moves
+the flexible attempts in progress it covers through every window ahead, auditing each move as
+`attempt.extended` with the reason `maintenance`, the window's id and the writer's cause, and counts
+each attempt moved once. `Postgres.Extend` (`attempts/repositories/admin.go`) now takes the windows
+lock shared before the attempt row, in one transaction, and moves a flexible attempt through the
+windows ahead (`schedule.MoveAttemptThroughWindows`), answering with the moved deadline; a strict
+extension only waits on the lock. Strict starts and writers are unchanged. The tests are
+`flexible_start_window_test.go`, `flexible_extend_window_test.go` and
+`flexible_window_race_test.go` in `core/maintenance/tests`, and `window_flexible_writers_test.go` in
+`modules/assignments/repositories/tests`. Left as they were: scheduling a window does not move a
+second time a close it moves into a window scheduled earlier; a strict writer or a strict
+`extendAttempt` can still leave a deadline inside a window; and a writer that puts an assignment's
+or an override's close inside a window does not move the close, which would change strict starts
+and is the owner's call.
 
 ### T-F1.4 — Integrity and notices under flexible
 **Depends on:** T-F1.2
@@ -239,19 +317,30 @@ lines in Quizzivy/docs#27.
 `modules/attempts/domain/milestones.go`, `modules/attempts/application/internal/support/announcer.go`
 **Size:** M
 **Done when:**
-- [ ] Under flexible, `deriveFocusLoss` flags the attempt at the first counted absence, whatever
+- [x] Under flexible, `deriveFocusLoss` flags the attempt at the first counted absence, whatever
       the stored `maxFocusLoss` and `onLimitExceeded`; under strict the SQL is unchanged.
-- [ ] Under flexible, `closeForFocusLimit` never closes an attempt, on save or on submit, and a
+- [x] Under flexible, `closeForFocusLimit` never closes an attempt, on save or on submit, and a
       client's `auto_submit` reason is rewritten to `manual` as today.
-- [ ] The first flag writes `attempt.flagged` with the existing key `flagged:<attemptId>`. Every
+- [x] The first flag writes `attempt.flagged` with the existing key `flagged:<attemptId>`. Every
       later counted absence under flexible writes it again with the key
       `flagged:<attemptId>:<15-minute bucket>` and the new count, so a teacher is told at most once
       per attempt every 15 minutes. Events that arrive by `flushEvents` are counted and announced
       the same way as those on a save.
-- [ ] Strict attempts write exactly what they write at v0.14.0: one notice, at the flag, never
+- [x] Strict attempts write exactly what they write at v0.14.0: one notice, at the flag, never
       under `warn`.
-- [ ] The recipients are `visibility.PaperReaders`, as today, and the channel follows each
+- [x] The recipients are `visibility.PaperReaders`, as today, and the channel follows each
       teacher's preference for `attempt.flagged`, email included where R7 built it.
+
+**As built** (Quizzivy/api#74): `deriveFocusLoss` returns whether it flagged and, under flexible,
+whether it counted another absence on a paper already flagged (`Milestones.AbsentAgain`); the
+announcer writes the second under `FlaggedAgainKey`, `flagged:<attemptId>:<bucket>`, where the
+bucket is the Unix time divided by 900 s, so it is a quarter of an hour on the clock, and the
+email's key carries the same bucket (`PlanEmail`). The repeat is written with `Merge: Replace`, so
+each later absence in a bucket updates that bucket's notice and marks it unread again; only the
+email is sent at most once per bucket. An events flush now runs in one transaction with its credit
+of time on the paper, so a credit that fails takes the flag back with it and the retry reports it
+(`TestAFlushWhoseCreditFailsKeepsItsFlagForTheRetry`). A paper a teacher flagged by hand on a
+flexible assignment has no first notice, and its next counted absence writes a repeat.
 
 ### T-F1.5 — Time on the paper
 **Depends on:** T-F1.2
@@ -259,16 +348,22 @@ lines in Quizzivy/docs#27.
 `modules/attempts/http/`, the monitor and attempt read models
 **Size:** S
 **Done when:**
-- [ ] A start sets `active_ms = 0` and `active_reported_at = started_at`; a resume sets
+- [x] A start sets `active_ms = 0` and `active_reported_at = started_at`; a resume sets
       `active_reported_at` to its time.
-- [ ] A save or flush with `activeMs` adds `least(activeMs, now − active_reported_at + 5 s)` to
+- [x] A save or flush with `activeMs` adds `least(activeMs, now − active_reported_at + 5 s)` to
       `active_ms` and sets `active_reported_at = now`, in the same transaction, only while the
       attempt is in progress and only from its current session; a superseded session's report is
       dropped. A row with a null `active_ms` stays null.
-- [ ] `MonitorRow.activeSeconds` and `Attempt.activeSeconds` are `active_ms / 1000`, rounded
-      down, or null. Both modes report it.
-- [ ] A test pins the cap (a report larger than the time since the last one is cut) and the
+- [x] `MonitorRow.activeSeconds` and the attempt review's `activeSeconds` are `active_ms / 1000`,
+      rounded down, or null. Both modes report it.
+- [x] A test pins the cap (a report larger than the time since the last one is cut) and the
       superseded case.
+
+**As built** (Quizzivy/api#74): `creditActive` (`repositories/autosave.go`) credits only an attempt
+whose deadline has not passed, beside the in-progress and current-session conditions above; a
+resume moves `active_reported_at` only on a measured row. The beacon's text body is held to the
+contract's 0 to 600000 as the JSON body is. The review's figure is the response's `activeSeconds`
+(T-F1.1, As built).
 
 ## C. The web
 
@@ -280,13 +375,22 @@ list and detail chips, `features/settings/sections/AssignmentDefaults.tsx`,
 `lib/i18n/locales/{vi,en}/teacher.json`
 **Size:** M
 **Done when:**
-- [ ] The Mode choice is drawn as on the F1 page; the draft starts from the teacher's default mode,
+- [x] The Mode choice is drawn as on the F1 page; the draft starts from the teacher's default mode,
       else strict.
-- [ ] Under flexible the time limit row and the two leaving controls are not shown, and the body
+- [x] Under flexible the time limit row and the two leaving controls are not shown, and the body
       still sends the stored `durationMinutes`, `maxFocusLoss` and `onLimitExceeded` unchanged.
-- [ ] The Settings tab shows the mode in the Test & timing group and locks it with that group; a
+- [x] The Settings tab shows the mode in the Test & timing group and locks it with that group; a
       `409 ASSIGNMENT_LOCKED` on the mode says so in the group's error line.
 - [ ] Vietnamese is written first and every new key is listed in the pull request.
+
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The mode heads the
+Schedule step's timing rules, after the window. Under flexible the Rules step keeps the stepper for
+the seconds an absence needs (T-F1.0, As built), which is not one of the two leaving controls. The
+Settings tab locks the mode with "Đề và thời gian" while open and, once any attempt exists, whatever
+the status, as the server does; a refused save shows the server's message in the dialog's error
+line. Settings › Assignment defaults stores the mode beside the five others. The pull request lists
+no new locale key, so the last box is not met as written; the keys are its diffs of the `vi` and
+`en` locale files.
 
 ### T-F1.7 — The student: intro, engine, leaving and resuming
 **Depends on:** T-F1.0, T-F1.1, T-F1.0b
@@ -296,18 +400,29 @@ list and detail chips, `features/settings/sections/AssignmentDefaults.tsx`,
 `lib/i18n/locales/{vi,en}/{student,common}.json`
 **Size:** M
 **Done when:**
-- [ ] Under flexible the intro's rules say the student may stop and come back until the close, and
+- [x] Under flexible the intro's rules say the student may stop and come back until the close, and
       never that the clock does not stop; strict copy is unchanged.
-- [ ] Under flexible the header shows the close as on the F1 page, and the engine submits
+- [x] Under flexible the header shows the close as on the F1 page, and the engine submits
       `timer_expired` at that deadline exactly as today.
-- [ ] Under flexible the leave dialog is a break ("Tạm nghỉ"), the ✕ records `paper_left` before
+- [x] Under flexible the leave dialog is a break ("Tạm nghỉ"), the × records `paper_left` before
       it leaves, and Home's card and the intro resume the attempt.
-- [ ] Under flexible the strike dialog says the absence is recorded and the teacher told, with no
+- [x] Under flexible the strike dialog says the absence is recorded and the teacher told, with no
       allowance and no submit; `useIntegrityAutoSubmit` never fires.
-- [ ] In both modes the engine adds up the paper's visible time, sends it as `activeMs` with each
+- [x] In both modes the engine adds up the paper's visible time, sends it as `activeMs` with each
       save and with the `pagehide` beacon, and saves at least once a minute while the paper is
       visible and time has accrued.
-- [ ] Unit tests cover each line above; the engine's existing strict tests pass unedited.
+- [x] Unit tests cover each line above; the engine's existing strict tests pass unedited.
+
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4, with T-F1.6 and T-F1.8):
+No assertion of an existing strict test changed: the engine's shared fixtures gain `mode: "strict"`,
+and `deadline.test.ts` gains a block of its own for a close weeks away. The × records
+`paper_left` under flexible only, once the leave has saved the answers and just before it goes Home;
+the browser's back button and other ways out record none. The copy names the button × ("nút ×"),
+which the font draws. The header pill shows the close until the last hour, and a close further than
+a day away is waited for a day at a time, since a timeout above 2^31 − 1 ms fires at once. Time on
+the paper is counted while the paper is loaded, unlocked, not being submitted, visible and uncovered
+by the maintenance or sign-in-again overlay; it is settled when a save is acknowledged or the
+browser takes the beacon, and a manual hand-in reports it first.
 
 ### T-F1.8 — The teacher's attempt views
 **Depends on:** T-F1.0, T-F1.1
@@ -318,12 +433,34 @@ list and detail chips, `features/settings/sections/AssignmentDefaults.tsx`,
 `web/src/features/notifications/kinds.ts`, `lib/i18n/locales/{vi,en}/{teacher,common}.json`
 **Size:** M
 **Done when:**
-- [ ] The monitor and the attempt sheet show time on the paper and from start to hand-in, as on the
+- [x] The monitor and the attempt sheet show time on the paper and from start to hand-in, as on the
       F1 page; an attempt with `activeSeconds` null shows the second only, as today.
-- [ ] The timeline shows the date on the first event of each day once an attempt spans more than
+- [x] The timeline shows the date on the first event of each day once an attempt spans more than
       one, and draws `paper_left` followed by `resume` as a break, in the neutral tone.
-- [ ] A repeated `attempt.flagged` reads with its new count; the danger tone and "Flagged" are as
+- [x] A repeated `attempt.flagged` reads with its new count; the danger tone and "Flagged" are as
       today.
+
+**As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The two times show the
+span under time on the paper only when the two round to a different number of minutes, and the
+roster's column takes its new name once any row reports time on the paper. A break on the timeline
+runs to the next `resume` or `session_takeover`. Under flexible, Close early says students mid-test
+carry on until the planned close, and the attempt extension says the deadline moves at once and can
+pass the close.
+
+A return in the same tab writes neither event: the tab still holds its session (spec §10.6), so
+"Tiếp tục làm bài" only reads the attempt with it and resumes nothing. The engine therefore records
+a client event of its own, `paper_returned` (Quizzivy/web#153, with
+T-F1.9). `recordPaperLeft` marks the buffer's session as on a break (`openBreak` in
+`integrity/buffer.ts`), stored with the buffer; when `useIntegrityMonitor` begins the same session
+again it clears the mark and records `paper_returned` once, with the question on screen
+(`closeBreak`). A buffer begun for another session drops the mark, since the server's `resume` ends
+the break there. `timeline.ts` adds `paper_returned` to the kinds that end a break and draws no row
+for it, so such a break shows its length and a later move to another device no longer runs it
+across the same-tab sitting. The server needs no change: the event log is not an enum, the
+summary's counts and `deriveFocusLoss` do not read the kind, and it sorts after `paper_left` in its
+session by `clientSeq`. When `sessionStorage` throws, the buffer and its mark are kept in memory by
+attempt and outlast the engine's unmount, not a reload. Strict never records `paper_left`, so it
+records no `paper_returned`.
 
 ## D. Close-out
 
@@ -333,10 +470,19 @@ list and detail chips, `features/settings/sections/AssignmentDefaults.tsx`,
 **Size:** M
 **Done when:**
 - [ ] The seed has one flexible assignment open to the seeded student.
-- [ ] An E2E walks it: start, answer, take a break by the ✕, resume in a second browser context,
+- [ ] An E2E walks it: start, answer, take a break by the ×, resume in a second browser context,
       leave the tab past `minAwayMs` twice, see no submit and no lock, hand in; the teacher sees the
       flag, one notice per 15-minute bucket, the break on the timeline and both times.
 - [ ] A live E2E lets a flexible attempt reach its close and finds it `timed_out`.
+
+**As built:** the seed is Quizzivy/api#75, merged into `work/flex-f1` at d08ee2ed
+(`seed/12-dev-flexible.sql`, assignment `…1201`); the E2E is Quizzivy/web#153 into `work/flex-f1`,
+open. The web branch also carries the
+same-tab return (T-F1.8, As built). `flexible.live.spec.ts`'s close test takes a break by the ×,
+comes back through the intro's "Tiếp tục làm bài" in the same tab and finds `paper_returned` on the
+server with no `resume` or `session_takeover` after the break, then takes a second break that
+reaches the close. `flexible-long-break.live.spec.ts`, in the slow project, returns in the same tab
+and reads one "Tạm nghỉ · {length}" on the teacher's sheet, no "Vào lại bài" and no raw kind.
 
 ### T-F1.10 — Documents
 **Depends on:** lands with T-F1.3 to T-F1.8, never after
@@ -345,12 +491,27 @@ and `IntegrityPolicy` types, the notifications rules, the per-student overrides 
 deadline rule), `docs/plan/20-data-model.md`, this file's "As built" lines
 **Size:** S
 **Done when:**
-- [ ] The spec describes both modes where it describes the deadline, leaving, integrity and the
-      teacher's notices, and its version is bumped.
-- [ ] `20-data-model.md` records `assignment_mode`, `active_ms` and `active_reported_at`.
+- [x] The spec describes both modes where it describes the deadline, leaving, integrity and the
+      teacher's notices, under "Changes pending (F1, v0.14.x)". The release pull request (T-F1.11)
+      numbers its version: spec §18 has a task pull request on an integration branch leave the
+      version line, so "its version is bumped" is the release's step.
+- [x] `20-data-model.md` records `assignment_mode`, `active_ms` and `active_reported_at`.
+
+**As built** (this pull request): The spec's changes are under "Changes pending (F1, v0.14.x)",
+beside R7's heading, and in §7 (the types), §8, §9, §10.1 to §10.4, §10.6, §12 (the ×), §13.3, §13.9
+and §15. The data model's section is §67 and its row D-81, the next free ones; §55's grant table and
+the migration inventory gain `00174`; §38's recompute and start race and §49's email keys name the
+flexible rule. This file gains the "As built" lines and four corrections found while building:
+maintenance and an extended deadline, the early close in the Deliverable, `paper_left` under
+flexible only, and the × for the break button. The pull request's review added two known gaps, a
+flexible start after a window was scheduled (spec §13.9) and a break returned to in the same tab
+(T-F1.8), and a docs line in the release checklist. Both gaps are now fixed, and the spec and this
+file describe the fixes: `paper_returned` (spec §9, §10.1, §10.4, §10.6; T-F1.8, T-F1.9) and the
+windows already scheduled (spec §13.3, §13.9, §15; T-F1.3).
 
 ### T-F1.11 — Release v0.14.x
 **Depends on:** every task above
+**Touches (Quizzivy/docs):** `docs/quizzivy-spec-v0.3.md` (the version line, §18)
 **Size:** S
 **Done when:** the release checklist below is ticked.
 
@@ -375,6 +536,9 @@ red.
       release branch only.
 - [ ] Every CI step of 70 §8.1 on the release pull request, judged by exit code, `pnpm e2e:live`
       included.
+- [ ] Docs: the release pull request on Quizzivy/docs sets the spec's version line to the next free
+      number and renames "Changes pending (F1, v0.14.x)" to "Changes since v0.NNN" (spec §18),
+      where NNN is the version it replaces; T-F1.10's "As built" lines are final.
 - [ ] The five canaries pass, and their files are as they were at v0.14.0.
 - [ ] Security: no operation added; `permissions.golden` unchanged; the `/app/*` leak review lists
       `mode` as the only student field added.
@@ -393,7 +557,7 @@ F1's place as its own release after v0.14.0 and before R8.
 | Q1 | Does flexible keep a per-attempt time limit? | No. The deadline is the student's close; per-student overrides of the close still apply. |
 | Q2 | What happens to an attempt still in progress at the close? | It is submitted automatically, as today, and reads "timed out". The day-before and hour-before reminders stay. |
 | Q3 | Can a student resume on another device? | Yes, as today. The new tab or device takes the paper over, the old one locks, and the teacher's timeline reads "Resumed in another tab or device". |
-| Q4 | Does a break count as leaving the paper? | No. A break is the ✕ (answers saved) or closing the page. An absence is counted only while the paper is open and the student switches tab or application. |
+| Q4 | Does a break count as leaving the paper? | No. A break is the × (answers saved) or closing the page. An absence is counted only while the paper is open and the student switches tab or application. |
 | Q5 | When is the teacher told? | At the first counted absence (3 s or more by default), which also flags the attempt; later ones together, at most one notice per attempt every 15 minutes. No action on the attempt. |
 | Q6 | Fullscreen and copy-and-paste under flexible? | The teacher's switches, as today. Only "Rời khỏi bài" and "Khi vượt giới hạn" go. |
 | Q7 | How is time shown to the teacher? | Two times: on the paper (the sittings added up) and from start to hand-in. The timeline gains dates. |
