@@ -2910,10 +2910,12 @@ recomputes nothing, because removing an override can only shorten a student's wi
 deadline never moves earlier. An update or a reopening recomputes the whole assignment
 unconditionally, and a shorter close or a Close now moves nothing for the same reason. An
 attempt whose `deadline_at` is not after the database's `now()` is over, swept or not, and is
-skipped, so no writer revives it. The recompute sets `deadline_at` of each `in_progress` attempt to `least(started_at +
-coalesce(o.duration_minutes, a.duration_minutes), CloseOf("o"))` where that is later than the
-deadline the attempt has, and writes one `attempt.extended` audit entry per attempt moved
-(`deadline_at` old and new, the cause, the assignment) through a data-modifying CTE. A deadline
+skipped, so no writer revives it. The recompute sets `deadline_at` of each `in_progress` attempt
+to `schedule.DeadlineOf("o")` where that is later than the deadline the attempt has: under a
+strict assignment `least(started_at + coalesce(o.duration_minutes, a.duration_minutes),
+CloseOf("o"))`, and under a flexible one (F1, §67) the student's close, `CloseOf("o")`. It writes
+one `attempt.extended` audit entry per attempt moved (`deadline_at` old and new, the cause, the
+assignment) through a data-modifying CTE. A deadline
 never moves earlier: removing an override, or a time limit shorter than the one an attempt
 started under, leaves a running attempt alone, and a deadline that a maintenance window pushed
 past the rule stays where it is. The recompute is limited to `studentIds` for an override and
@@ -2933,8 +2935,10 @@ exclusively and updates assignments and attempts in one statement, so it never r
 after the maintenance guard, with `FOR SHARE OF a`, and stores the deadline it computes from
 that read. The service's earlier read, outside the transaction, decides what the first
 maintenance check covers and nothing else: the transaction checks again that the student is
-targeted and that the committed window is open, and when the deadline it computes is later than
-the one the first check covered, it runs the maintenance check a second time over the longer span. `FOR SHARE OF o` is not taken: an override is written under the assignment row
+targeted and that the committed window is open, and when `Rules.GuardedUntil` ends later than the
+span the first check covered, it runs the maintenance check a second time over the longer span.
+`GuardedUntil` is the deadline under strict and, under flexible (F1, §67), the instant after the
+start, so a flexible start is refused only while a window is under way. `FOR SHARE OF o` is not taken: an override is written under the assignment row
 lock, so the assignment lock already orders a start against every override write, and a lock on
 the override row would only add a second, unordered path. The override join is a `LEFT JOIN`,
 and `FOR SHARE` on its nullable side is refused by PostgreSQL in any case.
