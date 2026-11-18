@@ -417,9 +417,18 @@ browser takes the beacon, and a manual hand-in reports it first.
 
 **As built** (Quizzivy/web#152, merged into `work/flex-f1` at 5aee63f4): The two times show the
 span under time on the paper only when the two round to a different number of minutes, and the
-roster's column takes its new name once any row reports time on the paper. A break on the timeline runs to the next `resume` or `session_takeover`. Under
-flexible, Close early says students mid-test carry on until the planned close, and the attempt
-extension says the deadline moves at once and can pass the close.
+roster's column takes its new name once any row reports time on the paper. A break on the timeline
+runs to the next `resume` or `session_takeover`. Under flexible, Close early says students mid-test
+carry on until the planned close, and the attempt extension says the deadline moves at once and can
+pass the close.
+
+Known gap: a return in the same tab writes neither event. The tab still holds its session (spec
+§10.6), so "Tiếp tục làm bài" only reads the attempt with it and resumes nothing. That break shows
+no length, and if the student later moves to another device, it runs across the whole same-tab
+sitting, since the takeover is written last under the old session. Closing it needs either a
+re-entry event that ends a break, or a break that ends at the next event of its own session or a
+`resume` in another, whichever comes first; it is a follow-up of Quizzivy/web#152, and T-F1.9's
+E2E, which resumes in a second browser context, does not cover it.
 
 ## D. Close-out
 
