@@ -459,6 +459,7 @@ found while building: maintenance and an extended deadline, the early close in t
 
 ### T-F1.11 — Release v0.14.x
 **Depends on:** every task above
+**Touches (Quizzivy/docs):** `docs/quizzivy-spec-v0.3.md` (the version line, §18)
 **Size:** S
 **Done when:** the release checklist below is ticked.
 
@@ -483,6 +484,9 @@ red.
       release branch only.
 - [ ] Every CI step of 70 §8.1 on the release pull request, judged by exit code, `pnpm e2e:live`
       included.
+- [ ] Docs: the release pull request on Quizzivy/docs sets the spec's version line to the next free
+      number and renames "Changes pending (F1, v0.14.x)" to "Changes since v0.NNN" (spec §18),
+      where NNN is the version it replaces; T-F1.10's "As built" lines are final.
 - [ ] The five canaries pass, and their files are as they were at v0.14.0.
 - [ ] Security: no operation added; `permissions.golden` unchanged; the `/app/*` leak review lists
       `mode` as the only student field added.
