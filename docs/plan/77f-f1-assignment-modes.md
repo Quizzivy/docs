@@ -143,7 +143,9 @@ left out because they drift.
   student's override's close, each of the two closes moved as the same statement moves it. The
   deadline can therefore move by less than the window's length, when only the assignment's close
   falls inside the window and an override's later close was the student's close, and it never
-  moves earlier (`core/maintenance/windows.go`, `windowDeadline`).
+  moves earlier (`core/maintenance/windows.go`, `windowDeadline`). A flexible attempt that starts
+  after the window was scheduled, or whose deadline a writer moves after that, goes through the
+  same rule, so it ends as if it had been running when the window was scheduled (T-F1.3, As built).
 - **The mode locks with the time limit.** Changing it answers `409 ASSIGNMENT_LOCKED` while the
   assignment is open or once any attempt exists: an attempt never changes mode under a student.
 
@@ -286,6 +288,29 @@ statements, so a start racing the change is seen (`TestAStartTheModeChangeWaited
 A duplicate copies the mode. The `/app/*` leak review's line for `mode` is the release checklist's
 and is not written yet.
 
+A window already scheduled now moves a flexible attempt that starts after it, or whose deadline a
+writer moves after it (on `feature/t-f1-03-flexible-start-window` in Quizzivy/api, from
+`work/flex-f1` at 4272cb44; PR to open). `schedule.FlexibleWindowDeadline`
+(`shared/schedule/windows.go`) is the flexible branch of `windowDeadline`, moved there verbatim, and
+`windowDeadline` is built from it, so scheduling, the start and the writers share one expression.
+`committedRules` (`attempts/repositories/store.go`) passes a flexible start's deadline through
+`schedule.ThroughWindows` after the start guard, which holds the windows lock shared, so the
+windows it reads (`schedule.WindowsAhead`: not cancelled, not ended) cannot change before the
+commit; each window ahead moves it in turn, the earliest first. `RecomputeDeadlines` then moves
+the flexible attempts in progress it covers through every window ahead, auditing each move as
+`attempt.extended` with the reason `maintenance`, the window's id and the writer's cause, and counts
+each attempt moved once. `Postgres.Extend` (`attempts/repositories/admin.go`) now takes the windows
+lock shared before the attempt row, in one transaction, and moves a flexible attempt through the
+windows ahead (`schedule.MoveAttemptThroughWindows`), answering with the moved deadline; a strict
+extension only waits on the lock. Strict starts and writers are unchanged. The tests are
+`flexible_start_window_test.go`, `flexible_extend_window_test.go` and
+`flexible_window_race_test.go` in `core/maintenance/tests`, and `window_flexible_writers_test.go` in
+`modules/assignments/repositories/tests`. Left as they were: scheduling a window does not move a
+second time a close it moves into a window scheduled earlier; a strict writer or a strict
+`extendAttempt` can still leave a deadline inside a window; and a writer that puts an assignment's
+or an override's close inside a window does not move the close, which would change strict starts
+and is the owner's call.
+
 ### T-F1.4 — Integrity and notices under flexible
 **Depends on:** T-F1.2
 **Touches (Quizzivy/api):** `modules/attempts/repositories/{autosave,events,submit,integrity_submission}.go`,
@@ -422,13 +447,20 @@ runs to the next `resume` or `session_takeover`. Under flexible, Close early say
 carry on until the planned close, and the attempt extension says the deadline moves at once and can
 pass the close.
 
-Known gap: a return in the same tab writes neither event. The tab still holds its session (spec
-§10.6), so "Tiếp tục làm bài" only reads the attempt with it and resumes nothing. That break shows
-no length, and if the student later moves to another device, it runs across the whole same-tab
-sitting, since the takeover is written last under the old session. Closing it needs either a
-re-entry event that ends a break, or a break that ends at the next event of its own session or a
-`resume` in another, whichever comes first; it is a follow-up of Quizzivy/web#152, and T-F1.9's
-E2E, which resumes in a second browser context, does not cover it.
+A return in the same tab writes neither event: the tab still holds its session (spec §10.6), so
+"Tiếp tục làm bài" only reads the attempt with it and resumes nothing. The engine therefore records
+a client event of its own, `paper_returned` (on `feature/t-f1-09-flexible-e2e` in Quizzivy/web,
+with T-F1.9). `recordPaperLeft` marks the buffer's session as on a break (`openBreak` in
+`integrity/buffer.ts`), stored with the buffer; when `useIntegrityMonitor` begins the same session
+again it clears the mark and records `paper_returned` once, with the question on screen
+(`closeBreak`). A buffer begun for another session drops the mark, since the server's `resume` ends
+the break there. `timeline.ts` adds `paper_returned` to the kinds that end a break and draws no row
+for it, so such a break shows its length and a later move to another device no longer runs it
+across the same-tab sitting. The server needs no change: the event log is not an enum, the
+summary's counts and `deriveFocusLoss` do not read the kind, and it sorts after `paper_left` in its
+session by `clientSeq`. When `sessionStorage` throws, the buffer and its mark are kept in memory by
+attempt and outlast the engine's unmount, not a reload. Strict never records `paper_left`, so it
+records no `paper_returned`.
 
 ## D. Close-out
 
@@ -444,7 +476,12 @@ E2E, which resumes in a second browser context, does not cover it.
 - [ ] A live E2E lets a flexible attempt reach its close and finds it `timed_out`.
 
 **As built:** in progress on `feature/t-f1-09-flexible-seed` (api) and
-`feature/t-f1-09-flexible-e2e` (web), not yet in a pull request.
+`feature/t-f1-09-flexible-e2e` (web), not yet in a pull request. The web branch also carries the
+same-tab return (T-F1.8, As built). `flexible.live.spec.ts`'s close test takes a break by the ×,
+comes back through the intro's "Tiếp tục làm bài" in the same tab and finds `paper_returned` on the
+server with no `resume` or `session_takeover` after the break, then takes a second break that
+reaches the close. `flexible-long-break.live.spec.ts`, in the slow project, returns in the same tab
+and reads one "Tạm nghỉ · {length}" on the teacher's sheet, no "Vào lại bài" and no raw kind.
 
 ### T-F1.10 — Documents
 **Depends on:** lands with T-F1.3 to T-F1.8, never after
@@ -467,7 +504,9 @@ flexible rule. This file gains the "As built" lines and four corrections found w
 maintenance and an extended deadline, the early close in the Deliverable, `paper_left` under
 flexible only, and the × for the break button. The pull request's review added two known gaps, a
 flexible start after a window was scheduled (spec §13.9) and a break returned to in the same tab
-(T-F1.8), and a docs line in the release checklist.
+(T-F1.8), and a docs line in the release checklist. Both gaps are now fixed, and the spec and this
+file describe the fixes: `paper_returned` (spec §9, §10.1, §10.4, §10.6; T-F1.8, T-F1.9) and the
+windows already scheduled (spec §13.3, §13.9, §15; T-F1.3).
 
 ### T-F1.11 — Release v0.14.x
 **Depends on:** every task above

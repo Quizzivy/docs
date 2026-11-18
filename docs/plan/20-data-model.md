@@ -2915,7 +2915,9 @@ to `schedule.DeadlineOf("o")` where that is later than the deadline the attempt 
 strict assignment `least(started_at + coalesce(o.duration_minutes, a.duration_minutes),
 CloseOf("o"))`, and under a flexible one (F1, §67) the student's close, `CloseOf("o")`. It writes
 one `attempt.extended` audit entry per attempt moved (`deadline_at` old and new, the cause, the
-assignment) through a data-modifying CTE. A deadline
+assignment) through a data-modifying CTE. Under a flexible assignment it then moves each attempt
+it covers through every maintenance window already scheduled ahead, as scheduling the window
+would have, each move a `maintenance` audit entry of its own with the window's id (spec §13.9). A deadline
 never moves earlier: removing an override, or a time limit shorter than the one an attempt
 started under, leaves a running attempt alone, and a deadline that a maintenance window pushed
 past the rule stays where it is. The recompute is limited to `studentIds` for an override and
@@ -2930,10 +2932,13 @@ with `FOR SHARE`, so a start waits for them; a plain `NO KEY` lock does not conf
 attempts, and the recompute moves the attempt it inserted, or reads the rules after the writer
 committed, and computes its deadline from the new window. `window-schedule` takes the lock
 exclusively and updates assignments and attempts in one statement, so it never runs among them.
+`extendAttempt` takes the lock shared and then the attempt row (F1), so a flexible attempt it
+extends is moved through the windows ahead before any window can change.
 
 *The start race (R12a-5).* `attempts.Store.Create` re-reads the rules inside its transaction,
 after the maintenance guard, with `FOR SHARE OF a`, and stores the deadline it computes from
-that read. The service's earlier read, outside the transaction, decides what the first
+that read, which for a flexible start is then moved through each window scheduled ahead
+(`schedule.ThroughWindows`, spec §13.9). The service's earlier read, outside the transaction, decides what the first
 maintenance check covers and nothing else: the transaction checks again that the student is
 targeted and that the committed window is open, and when `Rules.GuardedUntil` ends later than the
 span the first check covered, it runs the maintenance check a second time over the longer span.
