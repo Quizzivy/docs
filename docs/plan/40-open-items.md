@@ -15,7 +15,7 @@ Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
 "Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
-O-R5.1 to O-R5.13, R6's O-R6.1 to O-R6.10, R7's O-R7.1 to O-R7.20, below).
+O-R5.1 to O-R5.13, R6's O-R6.1 to O-R6.10, R7's O-R7.1 to O-R7.20, R8's O-R8.1 to O-R8.11, below).
 
 ---
 
@@ -1019,6 +1019,78 @@ D-80), and the email dispatcher runs at least once a minute so the row goes with
 `people.users.manage`, so a role that reaches Messages and only reads students (the Assistant) has
 Send message in the row menu and no bulk Message, though the deck draws it with no gate. Kept so the
 Assistant's list stays plain (#285). **Open:** whether `canMessage` alone opens checkboxes.
+
+---
+
+## Phase R — R8's open items (v0.15.0)
+
+R8's questions. O-R8.1 to O-R8.6 are `78-r8.md`'s "Open items"; O-R8.7 to O-R8.11 are what the
+task PRs left open (Quizzivy/api#80 to #90, Quizzivy/web#160 to #168, Quizzivy/sdk#35), moved here by T-R8.17. Each default is what v0.15.0 ships unless the
+entry says otherwise; an answer that differs becomes a task in the release it names. The design
+departures behind them are in `docs/design/gaps.md` (DG-92, DG-93, DG-198).
+
+### O-R8.1 — Excused absences · Thuong (DG-92)
+**Default (built):** present, late and absent, plus unmarked, which is no row. An `excused` status
+would change the rate's formula and R9's gradebook, and the table refuses it
+(`attendance_marks_status_check`, data model §68).
+
+### O-R8.2 — Holidays and term breaks · design
+**Default (built):** nothing cancels a range of dates at once; a teacher cancels each date
+separately in the session popover. A holiday calendar needs a design row first.
+
+### O-R8.3 — Assistants taking attendance · when class staff ships (D14, DG-04)
+**Default (built):** the Assistant role holds `teaching.attendance`, but has no class until class
+staff ships, so teachers and admins take attendance.
+
+### O-R8.4 — A class's time zone · any release
+**Default (built):** a series keeps the zone of the teacher who created it, and a class has no zone of
+its own. That is correct while every centre is in one zone.
+
+### O-R8.5 — Session reminders · design
+**Default:** the deck draws no "class starts soon" notification, so none is built.
+
+### O-R8.6 — Today's later sessions on the Attendance page · design team
+**Default (built):** the sessions list holds started sessions only (`startsAt ≤ now`), so the
+Attendance page's Today card lists the sessions that have started today, and its empty line reads
+"Hôm nay chưa có lớp nào bắt đầu." / "No classes have started today." where v2 draws "No classes
+today." with "Not taken yet" rows. A save is taken from 15 minutes before a session starts, so a
+register opened from the Calendar in that window works before the session appears in the list.
+
+### O-R8.7 — The register list's cost over years · any release
+**Default (built):** `listAttendanceSessions` counts `notMarked` over every started session in scope,
+whatever the page, so it expands each series from its first date to now: five queries at most, and
+memory linear in the sessions the scope has ever had (about 3,000 for a teacher with ten classes
+meeting twice a week for three years, 30,000 for an Admin at 100 classes). **Next step, if it
+grows:** count `notMarked` in SQL with `generate_series` and page by walking back from `before`.
+
+### O-R8.8 — Attendance in the weekly summary · Thuong
+**Default (built):** the email gains a line per active class from last week's marked sessions
+("{class}: attendance 92% across 3 sessions"), with no cap on the number of lines. The in-app
+`summary.weekly` item is unchanged, because its params are the contract's. The summary's "active"
+rule is unchanged too: a teacher whose week had no paper handed in and no flag gets no summary, even
+with sessions marked. **Open:** whether the in-app item and that rule should count attendance.
+
+### O-R8.9 — An end before a series' first date · contract wording
+**Default (built):** `endSessionSeries` removes a series only when it has not begun and `lastDate` is
+before its first date, refuses a `lastDate` before yesterday or after the current end with `400`
+naming `lastDate`, and answers `409 SESSION_HAS_ATTENDANCE` when a later occurrence has a mark (api#83).
+The contract's description still says only that a `lastDate` before `startsOn` removes the series.
+**Open:** an sdk PR rewords the description; the behaviour does not change.
+
+### O-R8.10 — Design-system gaps found in R8 · design team
+**Default (built):** the screens use the nearest token or component: no muted `Badge` variant (the
+Terms list's Past pill is `secondary`), `RowMenu` has one size (30px on a phone where the deck draws
+40), there is no joined button group (the Calendar's week controls are drawn from tokens), no 3px
+radius (`radius-sm`, 6px), and no clearable radiogroup (the register's `StatusRadio` is drawn from
+`Segmented`'s track); the class tab's count is the system's 20px `count-brand` badge where the deck
+draws 18px, and the status chips are `Badge dot`, whose dot takes the ink colour. `gaps.md` lists
+each under DG-92 or DG-93. **Open:** whether the design system gains each, or the deck is redrawn.
+
+### O-R8.11 — A deadlock in the seat and teacher-limit path · Quizzivy/api#89
+**Open:** CI met `40P01` once in `TestEveryWayToTakeASeatOrATeacherPlaceStopsAtTheLimit`
+(identity, `limits_guard_db_test.go`) on api#88, whose diff cannot reach identity; it passed on a
+rerun. It may be a real lock-order bug between the ways to take a seat or a teacher place.
+**Default:** R8 ships without a change there; api#89 is investigated in its own PR.
 
 ---
 

@@ -5,11 +5,11 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, nineteen bounded contexts** under
+- **One process, one database, twenty bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
   assignments, attempts, dashboard, imports, availability, access, ai,
   notifications, organization, audit, exports, leads (R11), sharing and
-  messaging (R7). Each is one
+  messaging (R7), and timetable (R8). Each is one
   aggregate (dashboard is read models only; availability reads the maintenance
   windows the operator writes; access reads roles and grants, resolves who a
   request acts as, and from R5 serves the Roles page under `/admin/roles`;
@@ -32,7 +32,22 @@ the "one package per feature" layout AGENTS.md described until then.
   student side as two transports (`http.Staff`, `http.Student`) and two Go
   projections of a message, staff attachments sniffed by `shared/filetype` and
   served through five-minute presigned URLs, and the attempt-event cards read
-  through an attempts query behind its `ContextEvents` port) and
+  through an attempts query behind its `ContextEvents` port; timetable holds
+  a class's weekly series, one-off sessions and per-date changes, the calendar,
+  attendance and its rates, and the student's week (DG-92): its domain's
+  `OccurrenceManager.Expand` computes the occurrences of a range from the series
+  and the stored rows, which only a write creates, and every write takes the
+  class row's lock, then the series', then the session's. It reads the terms
+  through `Terms` and `TermsAhead` (organization's `CurrentTerm` and
+  `TermsEndingFrom`, `core/adapters.Terms`), zones through `Zones`, assignment
+  windows through `Assignments` (`adapters.TimetableAssignments` over the
+  assignments module's `CalendarWindows` query), a student's due work through
+  `DueItems` (`adapters.TimetableDueItems` over its `ForStudent` query) and photos
+  through `Avatars`; classes reads the active series through its own
+  `ScheduleSource` port (`adapters.ClassSchedules`) to derive a class's
+  schedule and room, and dashboard's `Sessions` port is the timetable's
+  `Occurrences` query. A session of an archived class from its archiving on is
+  left out by the shared loaders, so every reader inherits the rule) and
   exposes its operations through its own `http/` package, which core embeds
   into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
