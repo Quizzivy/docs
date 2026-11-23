@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.121 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.122 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes pending (R8, v0.15.0)**
+**Changes since v0.121**
 
 R8, schedule (`docs/plan/78-r8.md`): weekly class sessions with per-date changes, the teacher's Calendar, attendance with a "this term" rate, terms kept by admins, and a class's schedule and room derived from its sessions. T-R8.17 records the release's tasks below; the release PR numbers the version (§18).
 
