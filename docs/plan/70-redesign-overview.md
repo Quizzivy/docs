@@ -63,6 +63,7 @@ As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset ev
 | R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
 | F1 | v0.14.x (decided 2026-11-17, the owner, after a teacher's request) | Assignment modes: strict (the time limit and the teacher's action on leaving, as before) and flexible (the deadline is the close, a student may stop and resume, integrity recorded and the teacher told, no action on the attempt). Additive contract, one migration; after v0.14.0, before R8 | `77f-f1-assignment-modes.md` |
 | R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
+| F2 | v0.15.x (asked for 2026-11-23, the owner, after he could not write to some students) | Messaging: any teacher or admin writes to any enabled student, students still write first only to their own teachers and reply in any thread, and staff write to each other (one-to-one, with files). Additive contract, one migration; after v0.15.0, before R9 | `77g-f2-messaging.md` |
 | R9 | v0.16.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
 | R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
@@ -295,6 +296,7 @@ console's `listAllClasses` and `createClassForTeacher` (D-053) and answer a teac
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
 | Assignment mode | Every existing assignment reads strict and behaves as before; flexible exists only where a teacher chooses it. | F1 |
+| Messages | Every existing thread reads and behaves as before; a former student is still "Former student". Colleague threads exist only once two staff members write to each other. | F2 |
 | Retention | The R5 settings start at O-23's rules (`00130`: focus-loss events 13 months, answers kept, disabled accounts never anonymised), so nothing changes until an admin changes a select. The nightly sweep applies them only once `RETENTION_SWEEP_ENABLED` is `true` after a reviewed dry run (D16); until then it is a dry run. | R5 |
 | Browser storage | The student has no `quizzivy.column.*` key since R3: the engine's footer deletes `quizzivy.column.studentNavigator`, the only one, when it mounts. The theme is `quizzivy.theme` since R1; `quizzivy.locale` stays. The student's keys are listed below. | R1 (done), R3 |
 
