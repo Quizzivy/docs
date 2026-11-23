@@ -99,13 +99,16 @@ conflict to know: the skill teaches the pre-18
   release PR.
 - **`attempt_events`, `audit_log` and `messages` are append-only.** The app
   role has no `UPDATE` or `DELETE` on them. Do not grant it. A message is
-  deleted in one place only: D16's anonymisation of an account's direct
-  conversations, as `quizzivy_maintenance`.
-- **A direct message is readable by its two participants only**, the staff
-  member and the student (D17). `scope.all` never opens one, and neither does
-  any other permission: an Admin's id answers a direct thread, its messages
-  and its files as a missing one does, and the data export carries counts,
-  never contents. Class channels are class content and follow class scope.
+  deleted in one place only: D16's anonymisation of an account's direct and
+  colleague conversations, as `quizzivy_maintenance`.
+- **A direct message is readable by its two participants only, a staff
+  member and a student or two staff members** (D17, F2). `scope.all` never
+  opens one, and neither does any other permission: an Admin's id answers a
+  direct or colleague thread, its messages and its files as a missing one
+  does. Widening who may start a thread (any staff member to any student, any
+  colleague to any colleague) never widens who reads one: a thread is
+  addressed by its counterpart, so naming someone opens the caller's own
+  thread with them. The data export carries counts, never contents. Class channels are class content and follow class scope.
   Message posts, reads and uploads are not audited (`messages` is the
   record), and an email never carries a message body.
 - **The AI assistant never writes a grade, a question or a comment.** A
