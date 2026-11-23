@@ -179,6 +179,10 @@ Checked against the docs, not recalled. Do not re-derive; do not assume otherwis
 - **`pg_trgm` is case-insensitive but not accent-insensitive.** `'nghé' ILIKE
   '%nghe%'` is false. Vietnamese search must go through
   `app.immutable_unaccent(lower(...))` on both the index and the query.
+- **An `ON DELETE RESTRICT` key refuses as `23001 restrict_violation`**, not
+  `23503 foreign_key_violation`, which a `NO ACTION` key raises. Map a refused
+  delete through `db.ForeignKeyViolation`, which takes both;
+  `constraints_test.go` pins the 23001 on `attendance_marks_session_id_fkey`.
 - `NOT NULL … NOT VALID` exists **only** as
   `ALTER TABLE … ADD CONSTRAINT c NOT NULL col NOT VALID`. It is not in the
   `CREATE TABLE` grammar and not available via `SET NOT NULL`. On a greenfield
@@ -228,8 +232,14 @@ web/               quizzivy-web
                    is the bell and its preferences in both consoles; users, roles, audit,
                    exports, organization, ai-credits and api-reference are the Admin
                    console's, and admin-overview is its Overview; features/sharing is
-                   the share dialog, Shared with me and the access helpers (R7), and
-                   features/messages the teacher's and the student's Messages (R7)
+                   the share dialog, Shared with me and the access helpers (R7),
+                   features/messages the teacher's and the student's Messages (R7),
+                   features/calendar the teacher's Calendar, New session and the
+                   session popover (pages/teacher/) and the student's This week at
+                   /week (pages/student/, R8), and features/attendance the Attendance
+                   page and a class's register (R8); lib/i18n/schedule.ts is the one
+                   formatter of slots, schedule lines, weeks, days and times for every
+                   schedule surface
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
@@ -257,7 +267,10 @@ server/            Go module `quizzivy`: a modular monolith
                      operation, the Admin's list, the notice to the centre) is R11's;
                      sharing (the grants of a test or a question set, the colleague
                      directory, Shared with me) and messaging (class channels, direct
-                     threads, attachments, read pointers) are R7's
+                     threads, attachments, read pointers) are R7's;
+                     timetable (weekly series, one-off sessions and per-date changes,
+                     the calendar, attendance and its rates, the student's week) is R8's,
+                     and serves classes the derived schedule and dashboard today's sessions
   tests/             end-to-end tests (build tag e2e)
   gen/openapi/       generated, committed, never hand-edited (gen/contract/ too)
 migrations/        goose, forward-only, 00001…
@@ -268,6 +281,19 @@ docs/design/deck/  the design deck, pinned by MANIFEST.sha256 (scripts/check-des
 
 A vertical slice is one `web/src/features/<name>/`, one
 `server/internal/modules/<name>/`, and one section of `api/openapi.yaml`.
+
+**A series occurrence has no row until it is changed or marked** (R8, data
+model D-82, D-83) — verified against `modules/timetable`. Occurrences are
+computed for the range a read asks for (`domain.OccurrenceManager.Expand`,
+two queries for any number of classes), and nothing materialises them on
+read. An occurrence's id is `{seriesId}.{yyyymmdd}`, its scheduled date, and
+stays the same whether or not its row exists; a one-off's is its row's uuid,
+and an occurrence row's own uuid is never a session id. The write that needs
+the row (a per-date change, the first mark) creates it in its own transaction
+with `INSERT … ON CONFLICT (series_id, series_date) DO NOTHING`, under the
+class row's lock and then the series'. A new reader of sessions goes through
+the timetable's loaders, which also leave out a session of an archived class
+from its archiving on; it never reads `class_sessions` alone.
 
 **Tests use the public surface.** Every Go test file lives in a `tests/`
 directory under its layer as an external package; a test that needs a

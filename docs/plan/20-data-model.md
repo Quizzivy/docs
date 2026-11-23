@@ -1449,10 +1449,14 @@ listed here matches the spec.
 | D-75 | `messages` is append-only for `quizzivy_app` (UPDATE and DELETE revoked), beside `attempt_events` and `audit_log`. Only D16's anonymisation deletes, as `quizzivy_maintenance` | The log of teacher–student contact protects both sides, and most students are minors. A message nobody can edit is the record, so posts are not audited (D17) |
 | D-76 | `messaging_ties` keeps a pair after the `class_members` row is deleted, instead of a `left_at` on `class_members` | Every membership read would otherwise have to filter `left_at`. A staff member may write first to a former student (the owner, 2026-11-13; O-R7.8) |
 | D-77 | `quizzivy_maintenance` reads the messaging tables by column, never a body, a file name or a storage key | 00139's least-privilege rule, and D17: contents stay with their two participants |
-| D-78 | `00167` adds two deferred fill triggers for `messaging_ties`, although plan 77 says R7 needs none; R8's contract step drops them | The R6 binary serves between the migration and the swap and writes no tie, and `messaging-peer` reads only ties, conversations and `created_by`, so a student R6 enrolled in that window would be unreachable |
+| D-78 | `00167` adds two deferred fill triggers for `messaging_ties`, although plan 77 says R7 needs none; `00179` (R8, T-R8.2b) dropped them and their functions, and the table stays (§63, §68) | The R6 binary serves between the migration and the swap and writes no tie, and `messaging-peer` reads only ties, conversations and `created_by`, so a student R6 enrolled in that window would be unreachable |
 | D-79 | `email_suppressions` is keyed by the address, with no foreign key to `users`, and holds only an address an outbox row or an account already has (`00172`, §65) | Resend reports an address, not an account. A user whose email changes is no longer suppressed, which is how an Admin lifts a suppression today (O-R7.3); an address Quizzivy never held is not stored |
 | D-80 | `quizzivy_maintenance` may queue one email, the credit decision of a request it decided, and nothing else (`00173`, §66) | The owner's decision of 2026-11-16 (O-R7.19): the console's approve and decline email the teacher as the Admin operation does. A guard trigger ties each row to a decided request, its teacher's own address and the decision's own dedupe key, so a leaked credential can mail no one else, take no other email's key and spend no budget |
 | D-81 | `00174`'s Down refuses while a flexible assignment exists, and drops `attempts.active_ms` and `active_reported_at` without a check (§67) | The v0.14.0 binary would read a flexible assignment as strict: it would apply the leaving rule its teacher turned off and time each new attempt from its start, while each attempt in progress kept its deadline at the close. The mode cannot be rebuilt once the column goes, so the Down refuses as `00147`'s does for a word limit. Time on the paper is display only, so losing it refuses nothing |
+| D-82 | A weekly series' occurrences are not stored. `class_session_series` holds the pattern, occurrences are computed for the range a screen asks for, and `class_sessions` holds only one-offs, per-date changes and occurrences with attendance (`00176`, `00177`, §68) | Reads never write. Editing a series changes every future occurrence without rewriting stored rows, and past attendance stays on its date. Materialising on read was rejected: it writes on GET and leaves stale rows behind every series edit (DG-92) |
+| D-83 | A session's id in the API is opaque text, `{seriesId}.{yyyymmdd}` for an occurrence and the row's uuid for a one-off, not a column. `series_date` keeps the occurrence's original date when it moves, and `UNIQUE (series_id, series_date)` names it | An occurrence's id is the same whether or not its row exists yet, so a client can link, edit or take attendance on it before the row is made; the write that needs the row creates it in the same transaction |
+| D-84 | Terms never overlapping is an exclusion constraint, `terms_no_overlap EXCLUDE USING gist (daterange(starts_on, ends_on, '[]') WITH &&)` (`00175`), not a check in Go | Two admins saving at once cannot both win, and the API maps the `23P01` to `TERM_OVERLAPS` with no pre-check. Range types carry their own GiST operator class, so no `btree_gist` extension is needed |
+| D-85 | A class's sessions and series `CASCADE` with the class, and a mark is `RESTRICT` on its session, so a class with attendance is never hard-deleted (`00177`, `00178`) | Attendance is a record R9's gradebook and reports read, as attempts are, so it holds the class (409 `referencedBy: attendance`); a timetable without marks is the class's own data and goes with it |
 
 ---
 
@@ -1617,7 +1621,7 @@ the file it adds.
 | `00164_create_conversations.sql` | `conversations`, the two partial unique keys and the two side indexes; the app role's only `UPDATE` is `last_message_at` | T-R7.9 |
 | `00165_create_messages.sql` | `messages`, append-only for the app role | T-R7.9, D-75 |
 | `00166_create_conversation_reads.sql` | `conversation_reads`, one pointer per reader per thread; `DELETE` revoked from the app role | T-R7.9 |
-| `00167_create_messaging_ties.sql` | `messaging_ties`, filled from today's members and the audit log; two deferred fill triggers for the R6 binary | T-R7.9, D-76, D-78 |
+| `00167_create_messaging_ties.sql` | `messaging_ties`, filled from today's members and the audit log; two deferred fill triggers for the R6 binary, dropped by `00179` | T-R7.9, D-76, D-78 |
 | `00168_grant_maintenance_question_set_owners.sql` | `SELECT (owner_id)` on `question_sets` to `quizzivy_maintenance` | T-R7.12 |
 | `00169_tie_no_anonymised_account.sql` | the fill triggers skip an anonymised account; deletes anonymised accounts' ties | T-R7.12 |
 | `00170_widen_notification_preference_events.sql` | `notification_preferences_event_check` admits `summary.weekly` | T-R7.13 |
@@ -1625,6 +1629,11 @@ the file it adds.
 | `00172_create_email_suppressions.sql` | `email_suppressions`; `UPDATE` revoked from the app role | T-R7.15, D-79 |
 | `00173_grant_maintenance_decision_email.sql` | `quizzivy_maintenance` may queue the credit decision email: column grants on `notification_preferences`, `users` and `email_outbox`, `UPDATE` on `ai_credit_requests` narrowed to three columns, the `email_outbox_maintenance_guard` trigger | T-R7.23, O-R7.19, D-80 |
 | `00174_assignment_modes.sql` | enum `app.assignment_mode`; `assignments.mode`, default `strict`; nullable `attempts.active_ms` (`attempts_active_ms_check`, `NOT VALID` then validated) and `active_reported_at`; `SELECT (mode)` on `assignments` to `quizzivy_maintenance`; Down refuses while a flexible assignment exists; `lock_timeout` 5 s | F1 (T-F1.2), D-81, §67 |
+| `00175_create_terms.sql` | `terms`, `terms_no_overlap` (`EXCLUDE USING gist` over the inclusive date range); `lock_timeout` 5 s | T-R8.2, DG-93, D-84, §68 |
+| `00176_create_class_session_series.sql` | `class_session_series` (ISO weekday, 15 to 480 minutes, at most 731 days), `UNIQUE (id, class_id)`; class `CASCADE` | T-R8.2, DG-92, D-82, §68 |
+| `00177_create_class_sessions.sql` | `class_sessions`: one-offs, per-date changes, occurrences with attendance; composite series key `CASCADE`, `UNIQUE (series_id, series_date)` | T-R8.2, D-82, D-83, D-85, §68 |
+| `00178_create_attendance_marks.sql` | `attendance_marks`, present, late or absent; every key `RESTRICT` | T-R8.2, D-85, §68 |
+| `00179_drop_messaging_ties_fill_triggers.sql` | drops `00167`'s two fill triggers and their functions; `messaging_ties` and its rows stay; Down recreates them with `00169`'s bodies | T-R8.2b, D-78, §63, §68 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3062,6 +3071,10 @@ The commands trim both and store NULL for a value that is blank once trimmed, so
 meets an empty string. The checks scan `classes` once while the columns are added; a nullable column
 with no default rewrites nothing. Both columns are read by the teacher's class reads, by the class a
 student joins and by the student's own classes; neither reaches an index, a log or an audit row.
+Since R8 (T-R8.7, §68) the API derives a class's `schedule` and `room` from its active weekly series:
+`schedule_label` is the schedule's `label` beside the slots, and the column `room` is the class's own
+room (`ownRoom` on the teacher's reads); the derived `room` is it when set, else the one room every
+active series shares, else NULL.
 
 The class average (`Class.averageScore`) is derived, not stored. It reads the best graded attempt of
 each live member on each assignment that targets the class, through
@@ -4539,9 +4552,9 @@ nothing. The app role holds `SELECT` and `INSERT`. Before the fill the file adds
 `class_members_fill_messaging_ties` (after insert on `class_members`) and `classes_fill_messaging_ties` (after
 an update that changes `teacher_id`), `DEFERRABLE INITIALLY DEFERRED`, each `ON CONFLICT DO NOTHING`, so the
 R6 binary's enrolments during the rolling deploy are tied at their commit (D-78). Their functions are
-`SECURITY INVOKER`, with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`. **R8's contract step drops
-both triggers and both functions.** Creating them holds `SHARE ROW EXCLUSIVE` on `class_members` and
-`classes` until the file commits.
+`SECURITY INVOKER`, with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`. Creating them held
+`SHARE ROW EXCLUSIVE` on `class_members` and `classes` until the file committed. **`00179` (R8's contract
+step, T-R8.2b) dropped both triggers and both functions** (§68); the table and its rows stay.
 
 `quizzivy_maintenance` holds `DELETE` on the five tables and `SELECT` only on the columns D16's anonymisation
 finds rows by (D-77): `message_attachments (id, uploaded_by)`, `conversations (id, kind, staff_id,
@@ -4694,3 +4707,159 @@ GRANT SELECT (mode) ON app.assignments TO quizzivy_maintenance;
 - **The Down** refuses while a flexible assignment exists (D-81); otherwise it revokes the grant and
   drops the two attempt columns, the mode and the type. goose up, down and up runs in CI, and
   `TestTheAssignmentModesRollbackRefusesWhileAFlexibleAssignmentExists` pins the refusal.
+
+## 68. Terms, weekly sessions and attendance (T-R8.2, T-R8.2b, DG-92, DG-93)
+
+Four files, each a new empty table in one transaction, none `NO TRANSACTION`, so the R7 binary is
+unaffected during the rolling deploy. Each sets `lock_timeout = '5s'`, because its foreign keys take
+`SHARE ROW EXCLUSIVE` on `users`, `classes` or the table before it until the file commits.
+`quizzivy_app` holds `SELECT`, `INSERT`, `UPDATE` and `DELETE` on all four through `00009`'s default
+privileges; `quizzivy_maintenance` holds nothing on them. Each Down drops its table. A fifth,
+`00179`, is R8's contract step for R7 (below).
+
+`00175_create_terms.sql`, the centre's terms (DG-93), kept by admins under Admin › System settings
+(`system.settings.write`):
+
+```sql
+CREATE TABLE app.terms (
+  id         uuid PRIMARY KEY DEFAULT uuidv7(),
+  name       text NOT NULL,                  -- terms_name_check: length(btrim(name)) BETWEEN 1 AND 60
+  starts_on  date NOT NULL,
+  ends_on    date NOT NULL,                  -- terms_ends_on_check: ends_on >= starts_on
+  created_by uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),   -- terms_set_updated_at
+  CONSTRAINT terms_no_overlap EXCLUDE USING gist (daterange(starts_on, ends_on, '[]') WITH &&)
+);
+```
+
+Both ends are inclusive, so two terms sharing a day, a last day included, overlap. The exclusion
+constraint holds the rule against two admins saving at once, and T-R8.3 answers its `23P01` as
+`TERM_OVERLAPS` without a pre-check (D-84): the write runs under a savepoint, and only after a refusal
+is the term it met read. A range type carries its own GiST operator class, so no extension is needed.
+The constraint's index also serves `CurrentTerm(date)`.
+
+`00176_create_class_session_series.sql`, a class's weekly session (DG-92):
+
+```sql
+CREATE TABLE app.class_session_series (
+  id               uuid PRIMARY KEY DEFAULT uuidv7(),
+  class_id         uuid NOT NULL REFERENCES app.classes(id) ON DELETE CASCADE,
+  weekday          smallint NOT NULL,        -- _weekday_check: BETWEEN 1 AND 7, ISO (1 = Monday)
+  start_time       time NOT NULL,
+  duration_minutes smallint NOT NULL,        -- _duration_minutes_check: BETWEEN 15 AND 480
+  room             text,                     -- _room_check: char_length BETWEEN 1 AND 60
+  starts_on        date NOT NULL,
+  ends_on          date,                     -- _ends_on_check: NULL or >= starts_on
+                                             -- _two_years: NULL or <= starts_on + 731
+  time_zone        text NOT NULL,            -- _time_zone_check: char_length BETWEEN 1 AND 64
+  created_by       uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  created_at, updated_at                     -- class_session_series_set_updated_at
+  CONSTRAINT class_session_series_id_class_id_key UNIQUE (id, class_id)
+);
+CREATE INDEX class_session_series_class_idx ON app.class_session_series (class_id);
+```
+
+The zone is the creating teacher's (O-R8.4); its validity is checked in Go with `time.LoadLocation`,
+and the column bounds only its length, as `users.time_zone` does. An open-ended series is bounded at
+read time by the requested range, and the command refuses a first date more than two years ahead and
+caps a term-derived end at 731 days. `UNIQUE (id, class_id)` is the target of the sessions' composite
+key.
+
+`00177_create_class_sessions.sql`, the stored sessions:
+
+```sql
+CREATE TABLE app.class_sessions (
+  id               uuid PRIMARY KEY DEFAULT uuidv7(),
+  class_id         uuid NOT NULL REFERENCES app.classes(id) ON DELETE CASCADE,
+  series_id        uuid,
+  series_date      date,                     -- class_sessions_occurrence_check: both NULL or both set
+  starts_at        timestamptz NOT NULL,
+  duration_minutes smallint NOT NULL,        -- 15 to 480
+  room             text,                     -- 1 to 60
+  note             text,                     -- 1 to 200
+  cancelled_at     timestamptz,
+  created_by       uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  created_at, updated_at,                    -- class_sessions_set_updated_at
+  CONSTRAINT class_sessions_series_id_class_id_fkey FOREIGN KEY (series_id, class_id)
+    REFERENCES app.class_session_series (id, class_id) ON DELETE CASCADE,
+  CONSTRAINT class_sessions_series_id_series_date_key UNIQUE (series_id, series_date)
+);
+CREATE INDEX class_sessions_class_starts_idx ON app.class_sessions (class_id, starts_at);
+```
+
+A row is one of three things: a one-off session (`series_id` and `series_date` NULL), a per-date
+change to an occurrence of a series (moved, another room, a note, cancelled), or an occurrence that
+has attendance. An occurrence has no row until a write needs one (D-82), and an occurrence edited back
+to its series, with no attendance, keeps none. `series_date` stays the occurrence's original date when
+the session moves, so `(series_id, series_date)` names the occurrence whatever `starts_at` says (D-83);
+the unique key is the target of attendance's `INSERT … ON CONFLICT (series_id, series_date) DO NOTHING`
+(T-R8.6) and the index the series key's cascade reads. The composite key keeps an occurrence in its
+series' class; `MATCH SIMPLE` leaves a one-off, whose `series_id` is NULL, unchecked. A one-off is found
+by its uuid only while `series_id IS NULL`, so an occurrence row's uuid is never a session id.
+
+An edit of a series from a date on (T-R8.4) ends the old row the day before the change and inserts a
+new one, so a series row is never rewritten over dates that have happened; a series that has not begun
+is changed in place. Split and end judge a stored row by when it happens (`starts_at` in the series'
+zone), not by its `series_date`: the old series keeps a row that has attendance or was moved before the
+boundary, the new series starts after the latest such date, and the rows it does not keep are deleted
+and counted. Ending a series refuses a last date before yesterday or after its current end, removes the
+row only when the series has not begun, and refuses, with `SESSION_HAS_ATTENDANCE`, when a later
+occurrence has a mark, which would otherwise meet the marks' `RESTRICT` key as a 500.
+
+`00178_create_attendance_marks.sql`, a student's attendance at one session:
+
+```sql
+CREATE TABLE app.attendance_marks (
+  session_id uuid NOT NULL REFERENCES app.class_sessions(id) ON DELETE RESTRICT,
+  student_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  status     text NOT NULL,                  -- attendance_marks_status_check: present | late | absent
+  marked_by  uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  marked_at  timestamptz NOT NULL,
+  note       text,                           -- attendance_marks_note_check: 1 to 500, v2's per-mark note
+  PRIMARY KEY (session_id, student_id)
+);
+CREATE INDEX attendance_marks_student_idx ON app.attendance_marks (student_id);
+```
+
+Unmarked is the absence of a row, and unmarking deletes it; `excused` is not built (O-R8.1). A save is
+one statement, data-modifying CTEs feeding one `attendance.saved` audit row, written only when a status
+or a note changed; an unchanged mark keeps its `marked_by` and `marked_at`, and the diff says "note
+changed", never the note. The rate is one grouped query over the roster: `(present + late) ÷ (present +
+late + absent)` on the class's sessions with `cancelled_at IS NULL` in the window, as a whole percent
+rounded half up, `(200·attended + counted) div (2·counted)`, and null when nothing is counted. The
+student index serves the rate and the `RESTRICT` key on a user's delete.
+
+**Archived classes.** The timetable's loaders read the class's `archived_at` with every series and row:
+a session that starts at or after it does not exist for any read or write (404 on a write), whether
+computed or stored, and no rate counts a mark on one. Nothing is deleted, so the sessions before the
+archiving keep their attendance, and restoring the class brings the later ones back. An archived class's
+derived schedule is its label and its own room.
+
+**Deleting a class** cascades to its series and its sessions, and a mark restricts it (D-85): the
+delete reaches `attendance_marks_session_id_fkey` through the cascade and is refused, which
+`deleteClass` answers 409 with `referencedBy: attendance` (T-R2.13's map, `classes/repositories/delete.go`).
+A class with sessions but no attendance deletes, its sessions with it. On PostgreSQL 18 a `RESTRICT` key
+refuses as `23001 restrict_violation`, not `23503`; `db.ForeignKeyViolation` maps both. Plan 78's
+"fails with 23503" is read as this; `constraints_test.go` asserts 23001.
+**Deleting a user** is refused by `attendance_marks_student_id_fkey` and `attendance_marks_marked_by_fkey`
+as `attendance`, and by `terms_created_by_fkey`, `class_session_series_created_by_fkey` and
+`class_sessions_created_by_fkey` as `owned_content` (`identity/repositories/delete.go`).
+
+`00179_drop_messaging_ties_fill_triggers.sql` is the contract step D-78 promised and plan 78 left out
+(the hosting session's decision, 2026-11-23). It drops `00167`'s two deferred fill triggers,
+`class_members_fill_messaging_ties` and `classes_fill_messaging_ties`, and then their functions, under
+`lock_timeout = '5s'`, with no `IF EXISTS`. The binary that serves while it runs, v0.14.1, writes every
+tie itself in the transaction that enrols a student or changes a class's teacher (`shared/ties`:
+`Enrolled` from the join with a code, `addClassMember`, `createUser`, `createStudent` and the user
+import; `Reassigned` from the change of teacher and the transfer of ownership), and those are the only
+writes of `class_members` and `classes.teacher_id`, so no tie goes missing. A transaction still open
+when the file runs holds its lock on `class_members` or `classes`, so `DROP TRIGGER` waits for it and its
+deferred trigger fires at its commit as before. `app.messaging_ties` and its rows stay; F2
+(`77g-f2-messaging.md`) decides the table. The Down recreates both functions and both triggers as
+`00167` made them (`SECURITY INVOKER`, `search_path` pinned, `EXECUTE` revoked from `PUBLIC`,
+`DEFERRABLE INITIALLY DEFERRED`, the `teacher_id` guard) with the bodies `00169` gave them, so
+`00169`'s own Down still finds what it replaces. The dev seeds that add members (`01`, `03`, `08`,
+`09`) now write the tie with the membership, and `99-assert` refuses a member not tied to their class's
+teacher. `TestTheTieTriggerDropKeepsTheTiesAndRollsBack` walks the file up, down and up over a stored
+tie.
