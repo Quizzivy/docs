@@ -87,9 +87,9 @@ names are the code's; line numbers are left out because they drift.
   `repositories/student.go`, `formerTeacher`); D16's anonymisation deletes an account's rows
   (`core/maintenance/anonymize.go`, `forgetTies`). `00167` also added two deferred fill triggers
   for the R6 binary during R7's rolling deploy, and its comment, and `00169`'s, say "R8's contract
-  step drops both triggers and their functions". **`78-r8.md` does not schedule that drop:** its
-  T-R8.1 is `expectedUpdatedAt` alone and says nothing else in R7's checklist is marked for
-  contraction.
+  step drops both triggers and their functions". `78-r8.md` as merged does not list the drop,
+  but R8's T-R8.2 builds it on `work/redesign-r8` (the hosting session, 2026-11-23), so it is R8's
+  and F2 leaves it there.
 - **The data model.** `app.conversations` (`00164`) is `kind IN ('class','direct')` with
   `class_id`, or `staff_id` plus `student_id`, each shape held by a CHECK; one direct thread per
   `(staff_id, student_id)`; RESTRICT keys to users and classes. `messages`, `conversation_reads`
@@ -127,11 +127,10 @@ names are the code's; line numbers are left out because they drift.
   and "Former teacher" apart from a student the caller never taught, which the deck draws. So
   `app.messaging_ties`, `shared/ties` and anonymisation's `forgetTies` stay as they are, and
   `Tied` leaves `DirectFacts`. Dropping the table would lose the labels and gain nothing.
-- **F2 drops 00167's fill triggers.** They served the R6 binary during R7's rolling deploy; the
-  R7 binary writes every tie itself (`shared/ties`). R8's plan does not drop them although
-  `00167` says it will, so F2 does, in its own file, and the hosting session tells R8 not to add
-  the drop (or, if R8 already has, F2's file is removed). The file's Down restores `00169`'s
-  bodies.
+- **R8 drops 00167's fill triggers, not F2.** They served the R6 binary during R7's rolling
+  deploy; the R7 binary writes every tie itself (`shared/ties`). R8's T-R8.2 drops them, as
+  `00167` says, and F2's migration assumes they are gone. If R8 ships without the drop, F2's
+  migration adds it (`DROP … IF EXISTS`), never both.
 - **The staff rule becomes "a thread, or a student".** `Peer` is a thread between the two, or an
   account that passes R2's strict student predicate (`app.student_like_roles`) and is not
   anonymised; `PostDirect` keeps "enabled and still a student". `scope.all` plays no part:
@@ -186,15 +185,17 @@ names are the code's; line numbers are left out because they drift.
 
 ## R8 and F2
 
-- **Migrations.** R8's four files (T-R8.2) and F2's two are numbered in the order they reach
-  `develop`: R8's first. F2 writes its files as `NNNNN_…` on its branches and numbers them when
-  `work/messaging-f2` is merged with `develop` after R8, so goose never meets an F2 file below an
-  applied R8 one.
-- **The triggers.** As above: F2 drops them; R8 leaves them (`78-r8.md` T-R8.1 as written).
-- **The contract.** F2's sdk pull request opens after R8's T-R8.1 is merged into `develop`, and
-  merges after R8's sdk release is cut (`release/0.15.0`), so v0.15.0 carries no F2 operation
-  the R8 API does not implement. Until then the F2 api and web branches build on that pull
-  request's tree locally, as R8 did with `sdk-r8-pin1`.
+- **Migrations.** R8's files (T-R8.2: `00175` to `00178` on `work/redesign-r8` on 2026-11-23,
+  plus the trigger drop) and F2's one are numbered in the order they reach `develop`: R8's first.
+  F2 writes its file as `NNNNN_…` on its branches and numbers it when `work/messaging-f2` is
+  merged with `develop` after R8, so goose never meets an F2 file below an applied R8 one.
+- **The triggers.** R8's T-R8.2 drops them (above). F2's T-F2.2 reads R8's file before it is
+  written and adds nothing on the triggers unless R8 ships without the drop.
+- **The contract.** R8's contract is on sdk `develop` since 2026-11-23 (Quizzivy/sdk#35,
+  `contract-breaking`, published as `0.14.2-dev.202611230156.g512db48`). F2's sdk pull request is
+  cut from that `develop` and merges after R8's sdk release is cut (`release/0.15.0`), so
+  v0.15.0 carries no F2 operation the R8 API does not implement. Until then the F2 api and web
+  branches build on that pull request's tree locally, as R8 did with `sdk-r8-pin1`.
 - **Shared files.** F2 touches `identity/repositories/delete.go` and
   `classes/repositories/delete.go` only through the constraint-name map that T-R8.2 also edits
   (`referencedBy: attendance`); F2's entries are added after R8's are on `develop`.
@@ -226,7 +227,7 @@ names are the code's; line numbers are left out because they drift.
 ## B. Contract and server
 
 ### T-F2.1 — Contract: any student, recipients, colleague threads
-**Depends on:** R8's T-R8.1 merged into `develop` (above)
+**Depends on:** R8's contract on sdk `develop` (Quizzivy/sdk#35, merged 2026-11-23)
 **Touches (Quizzivy/sdk):** `api/openapi.yaml`, `sdk/`
 **Size:** M
 **Done when:**
@@ -265,20 +266,17 @@ names are the code's; line numbers are left out because they drift.
 - [ ] The api pull request on this contract (T-F2.2 onward) is green before this one merges
       (D-082 (iii)).
 
-### T-F2.2 — Migrations: the tie triggers, colleague conversations
+### T-F2.2 — Migration: colleague conversations
 **Depends on:** T-F2.1
-**Touches (Quizzivy/api):** `migrations/NNNNN_drop_messaging_tie_triggers.sql`,
-`migrations/NNNNN_colleague_conversations.sql`,
+**Touches (Quizzivy/api):** `migrations/NNNNN_colleague_conversations.sql`,
 `server/internal/platform/db/tests/{constraints,privileges,migrate}_test.go`,
 `server/internal/modules/identity/repositories/delete.go` (T-R2.13's map) and its integration
 test, `docs/plan/20-data-model.md`
 **Size:** M
 **Done when:**
-- [ ] `drop_messaging_tie_triggers` drops `class_members_fill_messaging_ties` and
-      `classes_fill_messaging_ties` and their two functions (`DROP … IF EXISTS`, so a database
-      where R8 dropped them still migrates), with `lock_timeout` at 5 s. Its Down creates them
-      again with `00169`'s bodies. A test enrols a student through the module and finds the tie,
-      and one inserting a `class_members` row by hand finds none (the triggers are gone).
+- [ ] It is numbered after R8's migrations, and R8's trigger drop is on `develop` first (R8 and
+      F2, above); a test enrols a student through the module and finds the tie, so `shared/ties`
+      alone still writes them.
 - [ ] `colleague_conversations`:
       - `conversations_kind_check` becomes `kind IN ('class', 'direct', 'colleague')`, added
         `NOT VALID` and validated in the same file.
@@ -467,8 +465,7 @@ non-negotiable on a direct message's two participants), `docs/plan/20-data-model
       its version.
 - [ ] `AGENTS.md`'s rule reads "a direct message is readable by its two participants only, a staff
       member and a student or two staff members".
-- [ ] `20-data-model.md` records the colleague columns, the checks, the dropped triggers and the
-      Down's refusal as a D-row.
+- [ ] `20-data-model.md` records the colleague columns, the checks and the Down's refusal as a D-row.
 
 ### T-F2.11 — Release v0.15.x
 **Depends on:** every task above, and v0.15.0 released
@@ -479,7 +476,7 @@ non-negotiable on a direct message's two participants), `docs/plan/20-data-model
 ## Order of work
 
 1. T-F2.0 (design) now; the owner answers Q1 to Q13.
-2. T-F2.1 once R8's T-R8.1 is on `develop`; it merges after R8's sdk release is cut, green with
+2. T-F2.1, cut from sdk `develop` now that R8's contract is there (Quizzivy/sdk#35); it merges after R8's sdk release is cut, green with
    its api pull request.
 3. T-F2.2, then T-F2.3, T-F2.4 and T-F2.5 (one lane: the same module and files in places).
 4. T-F2.6, T-F2.7 and T-F2.8 once T-F2.0's page is merged; they build against MSW. The locale
@@ -504,7 +501,7 @@ red.
 - [ ] Security: the isolation suite covers the five new operations and the D17 cases above;
       `permissions.golden` gains exactly the five; the leak review below is in T-F2.1's pull
       request; the `/app/*` leak review lists no field added.
-- [ ] Migration: the two files of T-F2.2, rehearsed on a copy of production with timings in the
+- [ ] Migration: the one file of T-F2.2, rehearsed on a copy of production with timings in the
       release pull request; the deploy is rolling, and a v0.15.0 pod lists, reads and posts as
       before while colleague rows exist.
 - [ ] Release note, vi first: any teacher or admin may write to any student; students reply but

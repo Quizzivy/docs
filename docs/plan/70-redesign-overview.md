@@ -63,7 +63,7 @@ As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset ev
 | R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
 | F1 | v0.14.x (decided 2026-11-17, the owner, after a teacher's request) | Assignment modes: strict (the time limit and the teacher's action on leaving, as before) and flexible (the deadline is the close, a student may stop and resume, integrity recorded and the teacher told, no action on the attempt). Additive contract, one migration; after v0.14.0, before R8 | `77f-f1-assignment-modes.md` |
 | R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
-| F2 | v0.15.x (asked for 2026-11-23, the owner, after he could not write to some students) | Messaging: any teacher or admin writes to any enabled student, students still write first only to their own teachers and reply in any thread, and staff write to each other (one-to-one, with files). Additive contract, two migrations; after v0.15.0, before R9 | `77g-f2-messaging.md` |
+| F2 | v0.15.x (asked for 2026-11-23, the owner, after he could not write to some students) | Messaging: any teacher or admin writes to any enabled student, students still write first only to their own teachers and reply in any thread, and staff write to each other (one-to-one, with files). Additive contract, one migration; after v0.15.0, before R9 | `77g-f2-messaging.md` |
 | R9 | v0.16.0 | Insights: gradebook, reports, student grades | `79-r9.md` |
 | R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
