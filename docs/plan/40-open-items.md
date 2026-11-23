@@ -1025,8 +1025,7 @@ Assistant's list stays plain (#285). **Open:** whether `canMessage` alone opens 
 ## Phase R — R8's open items (v0.15.0)
 
 R8's questions. O-R8.1 to O-R8.6 are `78-r8.md`'s "Open items"; O-R8.7 to O-R8.11 are what the
-task PRs left open (Quizzivy/api#80 to #90, Quizzivy/web#160 to #163 and the web PRs for T-R8.11 and
-T-R8.12, Quizzivy/sdk#35), moved here by T-R8.17. Each default is what v0.15.0 ships unless the
+task PRs left open (Quizzivy/api#80 to #90, Quizzivy/web#160 to #168, Quizzivy/sdk#35), moved here by T-R8.17. Each default is what v0.15.0 ships unless the
 entry says otherwise; an answer that differs becomes a task in the release it names. The design
 departures behind them are in `docs/design/gaps.md` (DG-92, DG-93, DG-198).
 
@@ -1083,7 +1082,9 @@ The contract's description still says only that a `lastDate` before `startsOn` r
 Terms list's Past pill is `secondary`), `RowMenu` has one size (30px on a phone where the deck draws
 40), there is no joined button group (the Calendar's week controls are drawn from tokens), no 3px
 radius (`radius-sm`, 6px), and no clearable radiogroup (the register's `StatusRadio` is drawn from
-`Segmented`'s track). `gaps.md` lists each under DG-92 or DG-93.
+`Segmented`'s track); the class tab's count is the system's 20px `count-brand` badge where the deck
+draws 18px, and the status chips are `Badge dot`, whose dot takes the ink colour. `gaps.md` lists
+each under DG-92 or DG-93. **Open:** whether the design system gains each, or the deck is redrawn.
 
 ### O-R8.11 — A deadlock in the seat and teacher-limit path · Quizzivy/api#89
 **Open:** CI met `40P01` once in `TestEveryWayToTakeASeatOrATeacherPlaceStopsAtTheLimit`

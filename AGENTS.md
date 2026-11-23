@@ -235,9 +235,11 @@ web/               quizzivy-web
                    the share dialog, Shared with me and the access helpers (R7),
                    features/messages the teacher's and the student's Messages (R7),
                    features/calendar the teacher's Calendar, New session and the
-                   session popover (R8), and features/attendance the Attendance page
-                   and a class's register (R8); lib/i18n/schedule.ts is the one
-                   formatter of slots, weeks, days and times for every schedule surface
+                   session popover (pages/teacher/) and the student's This week at
+                   /week (pages/student/, R8), and features/attendance the Attendance
+                   page and a class's register (R8); lib/i18n/schedule.ts is the one
+                   formatter of slots, schedule lines, weeks, days and times for every
+                   schedule surface
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
