@@ -205,8 +205,8 @@ names are the code's; line numbers are left out because they drift.
 ### T-F2.0 — Proposal page and the design row
 **Depends on:** —
 **Touches (Quizzivy/web):** `docs/design/deck/proposals/F2 Messaging.dc.html`,
-`docs/design/deck/MANIFEST.sha256`, `docs/design/deck/README.md` (Log), `docs/design/gaps.md`
-(DG-233)
+`docs/design/README.md` (Log), `docs/design/gaps.md` (DG-233). The deck's manifest and its
+check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
 **Size:** M
 **Done when:**
 - [ ] The page follows the proposal layout (cover, decisions, frames at 1280 and 360 in light and
@@ -218,8 +218,8 @@ names are the code's; line numbers are left out because they drift.
       a thread with a student the caller does not teach and its Details; a colleague thread
       (empty, normal with files from both sides, disabled account, Details); the student's view of
       a thread a staff member who does not teach them started.
-- [ ] DG-233 is added to `gaps.md` and names the page; `node scripts/check-design-deck.mjs` passes
-      with the regenerated manifest.
+- [ ] DG-233 is added to `gaps.md` and names the page; the generator's binding check
+      (`generators/check.js` in the shared notes folder) passes on every state.
 - [ ] A design issue in `Quizzivy/web` with Plan ID DG-233 on the board, and the page published to
       the "Quizzivy mockups" canvas. Its questions are this file's Q1 to Q13, on one "questions
       for the owner" issue for F2.
