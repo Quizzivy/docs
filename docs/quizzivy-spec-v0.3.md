@@ -3,6 +3,25 @@
 **Version:** 0.121 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (R8, v0.15.0)**
+
+R8, schedule (`docs/plan/78-r8.md`): weekly class sessions with per-date changes, the teacher's Calendar, attendance with a "this term" rate, terms kept by admins, and a class's schedule and room derived from its sessions. T-R8.17 records the release's tasks below; T-R8.14 (the schedule line on the class surfaces, the dashboard's Today and the join card) and T-R8.15 (the student's This week and the Classes timetable line) add theirs when they are built; the release PR numbers the version (§18).
+
+- T-R8.1 §15 `updateQuestion` requires `expectedUpdatedAt` (R7's contract step): a body without it answers `400 VALIDATION_FAILED` from the contract's validator, and the handler adds no check.
+- T-R8.2 §13.3 `00175` to `00178` add `terms`, `class_session_series`, `class_sessions` and `attendance_marks`, each a new empty table (`docs/plan/20-data-model.md` §68, D-82 to D-85). A series occurrence has no row until it is changed or marked; a class's series and sessions cascade with it, and a mark restricts it, so deleting a class with attendance, or a user with a mark, answers `409 RESOURCE_REFERENCED` with `referencedBy: attendance`, the enum's new value; a user who created a term, a series or a session answers `owned_content`.
+- T-R8.2b §13.3 `00179` drops `00167`'s two deferred fill triggers for `messaging_ties` and their functions, the contract step D-78 promised: every binary since v0.14.0 writes its own ties in the transaction that enrols a student or changes a class's teacher. The table and its rows stay; F2 (`docs/plan/77g-f2-messaging.md`) decides what becomes of it. The dev seeds write a member's tie with the membership.
+- T-R8.3 §8 §15 Terms (DG-93): `listTerms`, `createTerm`, `updateTerm` and `deleteTerm` under `/admin/settings/terms`, `system.settings.write`. A term is a name and two inclusive dates; terms never overlap, and an overlap answers `409 TERM_OVERLAPS` naming the other term, from the database's exclusion constraint. `state` (current, upcoming, past) is read in the caller's zone. Each write is audited (`term.created`, `term.updated`, `term.deleted`); a write that changes nothing writes no row.
+- T-R8.4 §15 Weekly series, one-off sessions and per-date changes under `/teacher/classes/{id}/sessions`, `/teacher/sessions/{sessionId}` and `/teacher/session-series/{seriesId}`, `teaching.classes.write`. A session id is opaque: a one-off's uuid, or `{seriesId}.{yyyymmdd}` for an occurrence. Editing a repeating session splits it from a date on and never rewrites the past; ending one refuses a last date before yesterday or after the current end, removes the series only when it has not begun, and answers `409 SESSION_HAS_ATTENDANCE` when a later occurrence has attendance. A request that changes nothing writes nothing. Audited as `session.*` and `session_series.*`.
+- T-R8.4 T-R8.6 §15 A session of an archived class that starts at or after the class's archiving does not exist for any read or write: it is left out of every list and a write to it answers 404. Earlier sessions keep their attendance, and restoring the class brings the later ones back. Only `createClassSession` answers `409 CLASS_ARCHIVED`.
+- T-R8.5 §8 §15 `getCalendar` (`GET /teacher/calendar`, `workspace.teacher`): the caller's sessions, cancelled ones included, the opens and closes of the assignments they reach on each assignment's own window, and the terms that end on or after `from`. `to` is exclusive and 1 to 42 days after `from`.
+- T-R8.6 §8 §15 Attendance (`teaching.attendance`): the list of started sessions with the count of those not marked, a session's register with each student's rate, and the save. Present, late or absent; unmarked is no row and is left out of the rate, and late counts as attended. The rate is a whole percent rounded half up, over the current term in the teacher's zone or, with no term, every session, and null when nothing is counted. A save is taken from 15 minutes before a session starts, never on a cancelled one, and writes one `attendance.saved` row, none when nothing changed; a note's text never enters the audit log.
+- T-R8.7 §6.5 §15 `schedule` (`{slots, label}`) and `room` on `Class`, `ClassListItem`, `AdminClassRow` and `MyClass` are derived: the slots from the series active today or later, one per weekday and start time, at most 14; the room is the class's own, else the one room every active series shares, else none. An archived class's schedule is its label and its own room. `ownRoom` on the teacher's `Class` and `ClassListItem` is the stored room, which Edit class reads. `POST /join/preview` returns exactly five keys, adding `schedule` and `room`, with the leak review in its PR (Quizzivy/api#86).
+- T-R8.8 §9 §15 `getStudentWeek` (`GET /app/week`, `learning.take_tests`): the student's ISO week in their zone, with the sessions of the classes they are a member of now, archived classes left out, and the assignments due for them from their open and upcoming lists; a flexible assignment's `durationMinutes` is null. No count, member, attendance or other student.
+- T-R8.9 §8 §15 The dashboard's `today` holds the actor's sessions of the day, cancelled ones left out, beside the assignment items, at most 40. The weekly summary email gains a line per class from last week's marked sessions, "{class}: attendance {rate}% across {n} sessions" / "{class}: chuyên cần {rate}% qua {n} buổi", left out when none was marked.
+- T-R8.10 T-R8.11 §8 The teacher's Calendar (`/teacher/calendar`): the week grid, the phone agenda, New session, and the session popover with its per-date and repeating-session actions (DG-92).
+- T-R8.12 §8 Attendance (`/teacher/attendance`), and a class's Attendance tab with the register (DG-92, DG-198).
+- T-R8.13 §8 Admin › System settings › Terms (`/admin/settings/terms`, DG-93).
+
 **Changes pending (next release)**
 
 - §10.2 Fullscreen is left on every way out of the paper and entered again on every way in (the owner, 2026-11-17): the × and any navigation away leave it, as a submit of any kind already did; Home's "Tiếp tục làm bài" enters it when the paper asks for it; an intro start the server refuses leaves the fullscreen its click entered (Quizzivy/web#144).
@@ -1892,7 +1911,9 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 - **Bounded bodies.** The six operations with a bucket keyed on a body field (login, Google sign-in, the preview, the in-app join and the two set-password operations) accept at most 8 KiB and answer `413` before any handler, so padding cannot hide the key from its bucket.
 - **Constant-time comparison** on code lookup; look up by a keyed hash (HMAC-SHA256) of the normalized code, not by plaintext equality. A live code issued before v0.8.0 was found by its SHA-256 until v0.10.0's start-up rotation replaced it (§6.1); since R5 (T-R5.1) nothing is found that way, and a revoked or expired one answers `JOIN_CODE_INVALID` as an unknown code does.
 - No audit row or log line carries a code, its ciphertext or its hash.
-- `POST /join/preview` returns exactly three fields: the class's id, its name and the teacher's display name. Never student names, counts, a member list or assignment titles. The id is a uuidv7: it reveals only when the class was created and grants nothing by itself. The Join dialog uses it to tell a student who is already a member (§6.2). It is an unauthenticated endpoint.
+- `POST /join/preview` returns exactly five fields: the class's id, its name, the teacher's display name, its weekly `schedule` and its `room` (R8, D5). Never student names, counts, a member list or assignment titles. The id is a uuidv7: it reveals only when the class was created and grants nothing by itself. The Join dialog uses it to tell a student who is already a member (§6.2). It is an unauthenticated endpoint.
+  - `schedule` and `room` are the facts a teacher prints on a flyer: the weekly pattern (`{slots: [{weekday, startTime, durationMinutes}], label}`, the class's free-text label beside slots from its active series) and the room (the class's own, else the one room its active series share), both null when the class has neither. They come from the series alone, never from `class_sessions`, so no session date, note, move or cancellation reaches the preview, and no member, session or attempt count does (DG-02).
+  - They are read only after the code has passed every check. A refused code answers exactly as before, with no class text, and reads no series. The rate limits are unchanged. `TestTheSuccessBodyHasExactlyFiveKeys` pins the five keys; the leak review is in Quizzivy/api#86, which filled them after api#80 moved that pin from three keys to five.
 - Log every enrolment (`class_id`, `user_id`, `ip`, `user_agent`, `at`) to the audit table.
 - Expiry defaults to 30 days precisely so an abandoned code stops working on its own.
 
@@ -2396,13 +2417,14 @@ flat results/reviews keep their existing payload and require no group reader.
 
 `TeacherLayout` (R4, `layouts/TeacherLayout.tsx` and `layouts/shell/`): a sidebar, a top bar with the breadcrumb trail, the search, the bell and the theme toggle, and the page. It follows the theme. A route declares `handle: { crumb, width?, sidebar? }`: the whole breadcrumb trail, whose last crumb titles the document; `width: "full"`, the page frame's one exception (the import review); and a collapsed start for the visit (the import review asks for one). Every other route renders in the one page frame of §12.
 
-- **The sidebar** groups the destinations as the deck does (Home, Messages; Teaching: Assignments, Grading, Classes, Students; Content: Tests, Shared with me, Question bank, Media), each shown only to a user with the permission its list operation declares. Messages carries a lime count of unread messages and Shared with me a muted count of what is shared with the caller, both from `GET /teacher/summary` (99+ above 99); the collapsed sidebar draws no count. From 768px it is in the page's flow, 248px expanded or 60px collapsed (icons, the label as the name, no badge), as the user last chose; the choice is kept in `localStorage` under `quizzivy.sidebar` and the sidebar never collapses by itself. Below 768px it is a 272px drawer over the page that traps focus and closes on every navigation.
+- **The sidebar** groups the destinations as the deck does (Home, Calendar, Messages; Teaching: Assignments, Grading, Classes, Students, Attendance; Content: Tests, Shared with me, Question bank, Media), each shown only to a user with the permission its list operation declares. Messages carries a lime count of unread messages and Shared with me a muted count of what is shared with the caller, both from `GET /teacher/summary` (99+ above 99); the collapsed sidebar draws no count. From 768px it is in the page's flow, 248px expanded or 60px collapsed (icons, the label as the name, no badge), as the user last chose; the choice is kept in `localStorage` under `quizzivy.sidebar` and the sidebar never collapses by itself. Below 768px it is a 272px drawer over the page that traps focus and closes on every navigation.
 - **Layout by content width, not viewport.** `<main>` is the scroller; a page lays itself out by the width of its content area (`useContentWidthAtLeast`, `useContentBand`), so collapsing the sidebar can widen a page into its next layout. The only viewport breakpoint is the shell's 768.
 - **One outlet at every width**, so a page keeps its state across 768. A route change returns `<main>` to the top and moves focus to it; a change of a parameter alone does neither.
 
 | Route | Screen | Key behaviour |
 |---|---|---|
 | `/teacher` | Dashboard | Figures, submissions over 7, 14 or 30 days, today's openings and closings, recent activity with the Flagged marker, live taking counts; the teacher home API below. Polls while the user is active. |
+| `/teacher/calendar` | Calendar | The week (`?week=2026-W39`, Monday first) of the caller's class sessions and the opens and closes of the tests they reach, as a grid, or an agenda from today where the content is too narrow for one; New session with `teaching.classes.write`; a session opens its popover (R8, below). `workspace.teacher`. |
 | `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
 | `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. A question also drags into a shared-context group, out of one and between two (§7.3): each member row has a grip, the group's header takes a drop while it is tinted, and every move has a menu entry and a keyboard path. Right: the editor of what the outline has open. A question on its own opens the question editor, incl. **question media** (§11.1). A passage, a cloze or a recording (a shared-context group) opens one pane: its heading (kind, section, title, instructions, its count and points, and the first unfinished question), its material in the left half (a recording's card above a text; a word selected in the text becomes a gap and the gap's question), and its questions in the right half as a stack of cards, one open and the rest a line each, numbered as in the test, with a row that adds a question by type or from the question bank. Below 560px of the pane's own width the two halves are tabs. The group's title, instructions and material are edited in the pane; no dialog edits them. Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
 | `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
@@ -2419,7 +2441,8 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/attempts/:id` | Review & grading | Per question; auto-graded shown; `short_answer` gets points input + comment + **sample answer panel**. Audio questions show plays used vs allowed. **Integrity tab** (§10.4). "Finish grading" → `graded`. |
 | `/teacher/grading` | Grading queue | Unmarked manual answers across the caller's assignments, by student or by question (below). `teaching.grading`. |
 | `/teacher/students` | Students | Table with search, class and account (Google or password) filters; create into one's own classes; edit; reset one password or up to 40 (§5.4). |
-| `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
+| `/teacher/attendance` | Attendance | Today's started sessions, the past sessions with no register and the last seven days' saved ones, across the caller's classes; a row opens the class's Attendance tab on that session (R8, below). `teaching.attendance`. |
+| `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). Class detail has the tabs Overview and Attendance (`?tab=attendance&session=`), the second with a count of the class's sessions not marked (R8). |
 | `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults (the mode among them since F1), Appearance, AI assistant (`ai.use`) and the API reference for its holders. Notifications is a grid, Update by In app and Email (R7): A student submits, An attempt is flagged, New message, An assignment is about to close and Weekly summary, each with a switch per channel; by default a teacher gets email for a flag, a new message and the weekly summary. Shares and a collaborator's publish have no switch. |
 
 **Sharing and access modes** (R7, D4; DG-90). The share dialog opens from a test's card ("Share", or "Shared · {n}") and its detail header, from a question set's page and from the bank's "Share…", for the content's owner holding `content.share` (the API also lets `scope.all` share). It searches colleagues whose role opens the teacher workspace, by name or email without accents (never the caller, a student or an anonymised account; a disabled colleague is marked), lists People with access with a level select each and Stop sharing, and shares with Can use or Can edit, with "Send a notification" and an optional message of at most 500 characters. A recipient skipped as already sharing, not a teacher, disabled or the owner is named in the toast. Every screen of shared content reads the caller's `access`:
@@ -2431,6 +2454,24 @@ flat results/reviews keep their existing payload and require no group reader.
 Make a copy (a test, a set, or one question of a set) makes the caller's own independent copy of the current draft and opens it.
 
 **Messages** (R7, D17; DG-91). The page (tabs All, Classes and Direct) lists the class channels of every class in the caller's scope that is not archived, posted in or not, and the caller's direct threads, newest first, each with its unread count and a one-line preview; a former student's row reads "Học viên cũ". An open thread polls every 10 seconds while the user is active and stops after ten idle minutes; a message is marked read once the newest has been in view for a second. Sending is optimistic under a client id, and a refused send keeps the message with Retry. A direct thread opens from Students (the row menu's Send message, and Message in the bulk bar), from class detail's member menu and from the list's search, for a student whose row carries `canMessage`: a student the caller teaches or taught, or whose account they created, while the account is enabled and still a student. A thread that exists stays open after the student leaves the class; the composer is replaced only when the other account is disabled or no longer a student. A staff member's direct thread also shows the student's flagged attempts on assignments the reader sees, from a day before the thread began, as cards that never count as unread. A class channel takes announcements from a holder of `teaching.classes.write` on a class that is not archived, shows "Seen by {n} of {m}" (a count, no names), and in it Enter makes a new line and only the button posts. Staff attach one file per message (PDF, Word, PNG, JPEG, MP3 or M4A, at most 20 MiB) through the Attach dialog; the file waits in the composer as a chip, and Download opens a five-minute link. Thread details open as a popover, a sheet on a phone. Admin › Data & privacy states, in a read-only row, that messages are kept and that anonymising an account deletes its direct messages.
+
+**Calendar and sessions** (R8, DG-92; the deck's `r.calendar` and the approved proposals `R8 Week and Class Schedule.dc.html` and `R8 Session Popover.dc.html`). A class meets in weekly series, one-off sessions and per-date changes (§13.3). The Calendar's h1 is the week ("22 – 28 tháng 9"), with previous, Today and next, and "+ Buổi học" (New session) for a holder of `teaching.classes.write`; the legend names Class session, Test closes and Test opens. The grid is a card at most 600px high that scrolls, with a 56px hour gutter, seven day columns under a sticky header, 44px hours from 08:00 to 22:00 that grow to whole hours for any earlier or later event, the weekend on `--sidebar`, today's header tinted and the now-line on today's column, static under reduced motion. The grid needs a window of at least 768px and a content area of at least 600px; elsewhere the week is an agenda from today, grouped by day. A test's open or close links to the assignment; a cancelled session stays, struck through and reading "Đã huỷ". The page reads the week once (`getCalendar`, Monday to the next Monday), again on focus and after a change, and never polls; it has a skeleton, an empty week ("No sessions this week." with New session, DG-83) and a failed read with Retry.
+
+- **New session** asks the class (prefilled room from its `ownRoom`), the date (today), the start (18:00), the length (60, 90 or 120 minutes, 90), the room and "Lặp lại mỗi tuần" (Repeat every week, on), whose hint is "Đến hết {term end}" from the term holding the date, else "Đến khi bạn dừng lặp lại". A repeating session runs to the end of that term, or until the teacher stops it, at most two years.
+- **The session popover** (a bottom sheet wherever the week is the agenda) shows the class, the date, the time range, the room, "Mỗi thứ Sáu" or "Không lặp lại", the note and a cancelled or changed badge, then the actions that apply: Take attendance once the session has started, for `teaching.attendance` (it opens the class's Attendance tab on that session); Edit this date; Cancel this date, or Restore; Edit repeating session and Stop repeating for a series; Delete for a one-off with no attendance. Arrow keys, Home and End move through the actions, and Esc closes it and returns focus to the session (DG-36).
+- **Edit this date** sends only what changed; on a series date an emptied room gives the series' room back. **Edit repeating session** changes the weekday, start, length and room from a date on, by default the series' next date: earlier sessions stay as they are, the change starts tomorrow when today's session already has attendance, and the toast counts the one-off changes it cleared. **Stop repeating** takes the last date, from yesterday on. Delete answers a session with attendance with "Buổi này đã điểm danh nên chỉ có thể huỷ.", and a series date with the Cancel confirm.
+
+**Attendance** (R8, DG-92, DG-198; v2's V-15, V-17 and V-18, and the approved proposal `R8 Attendance States.dc.html`). The page's three cards come from `listAttendanceSessions`: "Hôm nay · {date}", the sessions that have started today ("Hôm nay chưa có lớp nào bắt đầu." when none, O-R8.6); "Cần điểm danh", the earlier sessions with no register; and "Gần đây", the last seven days' saved ones. A row shows the time over the day, the class, the room and the students, or the counts once saved, and a chip (Not taken yet, Not taken, Saved). The register is the class's Attendance tab, on `?session=` or, without it, the class's latest session:
+
+- a session picker (its menu lists the class's sessions, with Load more), a chip, a search and "Mark all present" ("Mark the rest present" once some are marked);
+- a progress row, "{k} of {n} marked", with a bar in three parts and legend filters that are toggle buttons with counts (DG-17); a selection bar to mark many at once;
+- a row per student: the rate, in danger ink under 80%, under "Học kỳ này" or "Toàn bộ" by `rateScope`; a `radiogroup` of Present, Late and Absent, where choosing the marked option clears it; and a note, "Only you and co-teachers see it.", up to 500 characters, enabled once the student has a status;
+- the footer "Late counts as present in the attendance rate." The deck's "Students see their own attendance." is not taken: no student operation reads attendance (DG-198);
+- a sticky bar while anything changed, with Discard and "Lưu điểm danh". A save with students not marked first asks, saying they stay unmarked and are left out of the rate; leaving the page, the tab or the session with changes asks too. A session that has not started, or was cancelled, is read-only and says which.
+
+The roster is the class's active student members and anyone already marked on that session. A save sends only the marks that changed.
+
+**Terms** (R8, DG-93; the approved proposal `R8 Terms.dc.html`). Admin › System settings › Terms (`/admin/settings/terms`, after Organization) lists the centre's terms, newest first, with Starts, Ends and a Current, Upcoming or Past pill, and adds, edits and deletes them each in its own dialog, outside the settings form's unsaved-changes bar. An overlap shows "Trùng với {name}" under the two dates; deleting asks first, saying the term's attendance rates then cover every session. A term holds the attendance rate's window and the end of a repeating session made inside it, and is read by R9's gradebook.
 
 **The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). Every row is built: the first three in T-D4.34, the question editor's in T-D4.35, the grading card in T-D4.36, Assignment detail › Questions in T-D4.37 and the import workspace's in T-D4.39; Settings › AI assistant is T-D4.38's. The operations behind every one are built (§15). A panel is a dialog, so none adds a route.
 
@@ -2468,9 +2509,14 @@ graded papers without scores still count, and the mean is null when none has a
 score. The existing nullable score columns and historical rows are unchanged.
 
 `takingNow` counts distinct students and assignments with an `in_progress` paper
-whose deadline is strictly in the future. `today` holds up to 20 published
-assignment openings and effective closings in the actor's calendar day, earliest
-first; an early close uses the earlier of `closed_at` and `closes_at`.
+whose deadline is strictly in the future. `today` holds up to 40 items of the
+actor's calendar day, earliest first: published assignment openings and
+effective closings (`kind: opens | closes`), where an early close uses the earlier
+of `closed_at` and `closes_at`, and since R8 the sessions of the classes the
+actor teaches (`kind: session`, with `sessionId`, the class and the room),
+cancelled ones left out, read through the timetable's own query; an assignment
+item comes before a session at the same instant. The web's Today draws the
+sessions with T-R8.14 (Availability: R8).
 `notSubmitted` counts distinct enabled targets the caller reaches without a
 handed-in paper; a former target's submission does not subtract from that roster.
 `recentActivity` holds the ten newest events: one state per non-voided attempt
@@ -2541,7 +2587,7 @@ Teacher list behaviour (approved change request, 2026-09-22):
 | `/admin/ai` | AI credits | `ai.credits.manage`. The month's pool with the server's projection, the requests waiting, the teachers by the share of their allowance used and the rules; a rule saves as it is chosen. `501 AI_OFF` reads as one sentence. |
 | `/admin/audit` | Audit log | `system.audit.read`. Ten entries a page, newest first; the six categories with their counts, search and a date range in the address; a row opens its changes or details. Export: 7 days, 30 days or this year, CSV or JSON, optionally narrowed by the category and search (§13.4). |
 | `/admin/api` | API reference | `system.api_reference`. The contract's versions and operation count, a card per tag, the base URL, `openapi.json` and the interactive reference opened through the docs session (§5.5). `/teacher/settings/api` redirects here, or to Profile for anyone else. |
-| `/admin/settings/:section?` | System settings | `system.settings.write`. Organization, Sign-in, Data & privacy and Plan & usage (§5.6). |
+| `/admin/settings/:section?` | System settings | `system.settings.write`. Organization, Terms (R8, below), Sign-in, Data & privacy and Plan & usage (§5.6). |
 | `/admin/exports/:id` | Data export | `system.data_export`. Where the export email lands after sign-in. A queued or running export is read again every five seconds; a ready one shows its size and expiry and offers Download until it has been signed three times (D-024); failed, expired and another user's (404) each say so. In no sidebar destination. |
 
 A path under `/admin/*` that is none of these is a teacher address from before R4 and redirects to `/teacher` (§5.4).
@@ -2578,6 +2624,8 @@ The student's routes are at the root of the student host, and of an origin that 
 | `/classes` | Student | The classes joined, as cards: name, description, teacher (with photo), when and where it meets, and "Next", the paper that comes next in that class. Beside the teacher, a message button ("Nhắn cho {name}") opens the direct thread with them (R7). A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
 | `/messages`, `/messages/class/:classId`, `/messages/teacher/:teacherId` | Student (detail) | Messages (R7, D17): the student's direct threads and the announcement channels of their current classes that are not archived and have a post, newest first, with unread counts. A direct row reads "Your teacher · {classes}", "Former teacher" for a teacher whose classes with the student are all left or archived, or plainly "Your teacher" for a staff member who never taught them (the one who created the account). A student writes first only to the teacher of a class they are in now that is not archived; a thread that exists stays open after the student leaves the class or it is archived. Text only: a student attaches nothing, and Enter sends. A class channel is read-only, with its teacher named; announcements from the teacher show their files to download. The thread polls every 10 seconds while the student is active and stops after ten idle minutes. The back arrow goes home. |
 | `/settings/:section?` | Student | Profile (default: name, email read-only, language), Sign-in (password, Google), Notifications and Appearance (theme, "Chữ lớn hơn khi làm bài"), under a segmented switcher. Notifications has one switch per update, Test due soon, Result ready and Messages from teachers (R7), each covering the app and email (DG-82), with one sentence under the card: each update that is on also reaches the student by email at their address. Every section stays mounted, so a form survives a change of section or of width. The old slugs redirect: `security` to `sign-in`, `preferences` and any unknown slug to Profile. |
+
+**The student's week and the timetable line** (R8, DG-81, DG-83). The API serves both: `getStudentWeek` (`GET /app/week?start=`) is the student's ISO week, Monday to Sunday in their zone, seven days each with its items in time order. A session item is a class the student is a member of now, archived classes left out, with its start, length, room, the date's note and whether it is cancelled (a cancelled session stays, flagged); a due item is an assignment that closes in the week for that student, from their open and upcoming lists (a missed, closed one is not listed), with its close, whether an attempt is under way and its time limit, null under flexible. The week carries no count, member, attendance or other student. `MyClass` gains the class's derived `schedule` and `room` (§15): slots, label and room, with no date, note or count. The This week page, the Classes page's "This week" button and each card's timetable line, formatted by `lib/i18n/schedule.ts` ("T2 · T4 · T6, 18:00" / "Mon · Wed · Fri, 18:00"), are T-R8.15's (Availability: R8).
 
 Shared:
 
@@ -3427,9 +3475,11 @@ Snapshotting into **normalized rows** rather than one `jsonb` blob keeps per-que
 
 **Sharing** (R7, D4; `00159` to `00161`, `docs/plan/20-data-model.md` §62). `question_sets(id, owner_id, name, description, created_by, updated_by, created_at, updated_at, deleted_at)` is a named selection of the owner's standalone bank questions, soft-deleted (the app role has no `DELETE`); `question_set_items(set_id, question_id, ordinal, added_by, added_at)`, primary key `(set_id, question_id)` and a deferrable unique ordinal, holds references, not copies, and a held question cannot be purged. `content_shares(id, kind, test_id, question_set_id, grantee_id, access, granted_by, message, created_at, updated_at)` is one grant: `kind` is `test` or `question_set` and exactly the matching nullable foreign key is set (each cascading with its resource), `access` is `use` or `edit`, unique per resource and grantee, and no owner is stored: the owner is the resource's current owner. `tests.updated_by` and `questions.updated_by` (nullable, set NULL with the user) record the last writer, which a stale-write answer names.
 
-**Messages** (R7, D17; `00163` to `00169`, `docs/plan/20-data-model.md` §63). `conversations(id, kind, class_id, staff_id, student_id, created_at, last_message_at)` is a class channel (`class_id` alone) or a direct thread (`staff_id` and `student_id`, two different accounts), one per class and one per pair, created by the first post. `messages(id, conversation_id, sender_id, client_id, body, attachment_id, created_at)` holds a trimmed body of 1 to 4000 characters, a file or both; `(sender_id, client_id)` is unique, so a retried send is one message; the app role can neither update nor delete one. `message_attachments` holds a staff member's sniffed file (PDF, DOCX, DOC, PNG, JPEG, MP3, M4A; 1 B to 20 MiB; a name of at most 200 characters; its SHA-256), unsent until a message names it, and swept after 24 hours unsent. `conversation_reads(conversation_id, user_id, last_read_message_id, read_at)` is each reader's pointer, which only moves forward. `messaging_ties(staff_id, student_id, since)` records who has taught whom, filled at migration from today's members and the enrolment audit rows, written by every enrolment and change of teacher and never removed when a student leaves; it is what lets a teacher write first to a former student. Every key from a conversation or a message is `RESTRICT`, so a class with posts or an account with a thread is not hard-deleted (`referencedBy: messages`).
+**Messages** (R7, D17; `00163` to `00169`, `docs/plan/20-data-model.md` §63). `conversations(id, kind, class_id, staff_id, student_id, created_at, last_message_at)` is a class channel (`class_id` alone) or a direct thread (`staff_id` and `student_id`, two different accounts), one per class and one per pair, created by the first post. `messages(id, conversation_id, sender_id, client_id, body, attachment_id, created_at)` holds a trimmed body of 1 to 4000 characters, a file or both; `(sender_id, client_id)` is unique, so a retried send is one message; the app role can neither update nor delete one. `message_attachments` holds a staff member's sniffed file (PDF, DOCX, DOC, PNG, JPEG, MP3, M4A; 1 B to 20 MiB; a name of at most 200 characters; its SHA-256), unsent until a message names it, and swept after 24 hours unsent. `conversation_reads(conversation_id, user_id, last_read_message_id, read_at)` is each reader's pointer, which only moves forward. `messaging_ties(staff_id, student_id, since)` records who has taught whom, filled at migration from today's members and the enrolment audit rows, written by every enrolment and change of teacher in the same transaction (since `00179`, R8, by the binary alone: the deferred fill triggers `00167` added for the R6 binary are gone) and never removed when a student leaves; it is what lets a teacher write first to a former student. Every key from a conversation or a message is `RESTRICT`, so a class with posts or an account with a thread is not hard-deleted (`referencedBy: messages`).
 
 **Email suppressions** (R7, `00172`, `docs/plan/20-data-model.md` §65). `email_suppressions(address, reason, provider_event_id, created_at)` lists the addresses no mail goes to: the address lower-cased and trimmed is the primary key, `reason` is `bounced` or `complained`, and the delivery's `svix-id` is unique, so a replayed event changes nothing. Only the signed webhook writes it, and only for an address an outbox row or an account holds. The dispatcher closes every due message to a listed address as failed with `SUPPRESSED` before it claims. Notification emails (R7) are outbox rows whose params hold ids only, read by the template's Preparer when the row is sent, which closes a row that is no longer true as `SKIPPED`.
+
+**Timetable** (R8, DG-92, DG-93; `00175` to `00178`, `docs/plan/20-data-model.md` §68). `terms(id, name, starts_on, ends_on, created_by, created_at, updated_at)` is the centre's terms: a name of 1 to 60 characters and two inclusive dates, never overlapping, which `terms_no_overlap EXCLUDE USING gist (daterange(starts_on, ends_on, '[]') WITH &&)` holds in the database, so two admins saving at once cannot both win (D-84). `class_session_series(id, class_id, weekday, start_time, duration_minutes, room, starts_on, ends_on, time_zone, created_by, created_at, updated_at)` is a class's weekly session: an ISO weekday, a wall-clock start, 15 to 480 minutes, a room of 1 to 60 characters or none, a first date and a last one (none for open-ended, at most 731 days after the first), and the zone of the teacher who made it (O-R8.4). `class_sessions(id, class_id, series_id, series_date, starts_at, duration_minutes, room, note, cancelled_at, created_by, created_at, updated_at)` holds a one-off session (no `series_id`), a per-date change to an occurrence (moved, another room, a note of 1 to 200 characters, cancelled), or an occurrence that has attendance; `series_date` keeps the occurrence's scheduled date when it moves, `UNIQUE (series_id, series_date)` names it, and the composite key `(series_id, class_id)` keeps it in its series' class. **A series occurrence has no row until a write needs one** (D-82): occurrences are computed for the range a screen asks for, reads never write, and a write to an occurrence with no row creates it in the same transaction. Its id in the API is `{seriesId}.{yyyymmdd}`, a one-off's is its uuid (D-83). `attendance_marks(session_id, student_id, status, marked_by, marked_at, note)`, primary key `(session_id, student_id)`, is `present`, `late` or `absent`, with a note of 1 to 500 characters; unmarked is the absence of a row, and unmarking deletes it. A class's series and sessions cascade with it, and every key of a mark is `RESTRICT`, so a class with attendance and a user with a mark are not hard-deleted (`referencedBy: attendance`, D-85); on PostgreSQL 18 such a key refuses as `23001 restrict_violation`, not `23503`. A session of an archived class that starts at or after `archived_at` is left out of every read and write; nothing is deleted, so restoring the class brings it back.
 
 **Word imports** (R4, D-40, D-41; the tables are `docs/plan/20-data-model.md` §23 to §26). `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count` (integers, not negative), written with the review body in the same statement, which the import history reads without parsing the body; NULL is a draft not yet assessed, not zero. `word_import_sources.format` admits `text`, and `characters` (1 to 100000) is non-null exactly for a text source (§16).
 
@@ -3628,7 +3678,9 @@ GET    /public/organization             -> {name, shortName, website, contactEma
                                           everyone, Cache-Control public 300 s, 120/min and 2,000/h per IP
 GET    /public/organization/logo        ?variant=light|dark&v=<sha256> -> the logo bytes, nosniff, a PNG attachment; 404
                                           when there is none; 300/min per IP
-POST   /join/preview                    {joinCode} → {classId, className, teacherName}
+POST   /join/preview                    {joinCode} → {classId, className, teacherName, schedule, room}, exactly
+                                          these five keys (R8); schedule is ClassSchedule {slots, label} or null
+                                          and room derived, read only for a usable code (§6.5)
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}; 403 PASSWORD_SIGN_IN_DISABLED
                                           while the centre has password sign-in off (§5.6)
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}; 403
@@ -3697,7 +3749,9 @@ POST   /auth/sessions/revoke-others     → {revoked}; 401 as above; moves the e
 
 # teacher
 GET    /teacher/dashboard?range=7d|14d|30d → Dashboard (default 14d; own teaching); since R5 without
-                                          openAssignments, activeStudents, totalStudents, recentAttempts
+                                          openAssignments, activeStudents, totalStudents, recentAttempts;
+                                          today is at most 40 items, assignment opens and closes and (R8)
+                                          {kind: session, at, sessionId, classId, className, room}
 GET    /teacher/summary?audience=      → TeacherSummary {liveAssignments,answersToGrade,unreadNotifications,
                                           sharedWithMe,unreadMessages}; the notification count is of one console's
                                           kinds when audience is given; sharedWithMe counts live grants to the
@@ -3827,13 +3881,20 @@ POST   /teacher/students/:id/reset-password
 GET    /teacher/classes?q=&page=&limit=&status=&withCodes=
                                           rows carry joinCode in full, its code opened only with
                                           withCodes=true for a holder of teaching.classes.write and
-                                          only where getJoinCode would open it; Cache-Control no-store
+                                          only where getJoinCode would open it; Cache-Control no-store.
+                                          Since R8 a Class and a row carry schedule {slots: [{weekday,
+                                          startTime, durationMinutes}] (≤14), label} from the series active
+                                          today or later, room derived (the class's own, else the one room
+                                          every active series shares, else null) and ownRoom, the stored
+                                          room an edit form reads; an archived class's schedule is its
+                                          label and its own room
 POST   /teacher/classes                 {name, description, scheduleLabel, room, selfJoinEnabled}
 GET    /teacher/classes/:id
 PATCH  /teacher/classes/:id             {name, description, scheduleLabel, room, selfJoinEnabled, archived};
                                           an omitted scheduleLabel or room keeps its value, null or blank clears it
 DELETE /teacher/classes/:id             archived only, else 409 RESOURCE_NOT_ARCHIVED;
-                                          409 RESOURCE_REFERENCED {referencedBy}
+                                          409 RESOURCE_REFERENCED {referencedBy}, attendance for a class
+                                          with a mark (R8); its series and sessions go with it
 POST   /teacher/classes/:id/members | DELETE /teacher/classes/:id/members/:userId
 GET    /teacher/classes/:id/join-code   → {code, hint, legacy, expiresAt, maxUses, usesCount}
                                           Cache-Control no-store; code null for one sealed under a key
@@ -3843,6 +3904,60 @@ POST   /teacher/classes/:id/join-code   rotate {expiresInDays, maxUses} → {cod
                                           expiresAt is 23:59:59 of the last day in the caller's zone (§6.1);
                                           409 CLASS_ARCHIVED for an archived class, nothing written (§6.4)
 DELETE /teacher/classes/:id/join-code   revoke, disable self-join
+
+# teacher: timetable (R8, DG-92; writes teaching.classes.write; every write locks the class row, and
+# a session of an archived class from its archiving on answers 404)
+POST   /teacher/classes/:id/sessions    {date, startTime "HH:MM", durationMinutes 15-480, room?|null, repeatWeekly,
+                                          endsOn?} → 201 ClassSession, the first; repeatWeekly makes a series on
+                                          the date's weekday to endsOn, else the end of the term holding the
+                                          date (at most 731 days), else open-ended, in the caller's zone; room
+                                          left out is the class's own; 400 naming endsOn (without repeatWeekly,
+                                          before date, past two years) or date (more than two years ahead);
+                                          409 CLASS_ARCHIVED
+PATCH  /teacher/sessions/:sessionId     {date?, startTime?, durationMinutes?, room?|null, note?|null, cancelled?}
+                                          → ClassSession; on an occurrence it writes the date's row, keeping its
+                                          scheduled date, and room null gives the series' room back; an
+                                          occurrence edited back to its series keeps no row
+DELETE /teacher/sessions/:sessionId     a one-off → 204; 409 SESSION_IN_SERIES for an occurrence (cancel it
+                                          instead), 409 SESSION_HAS_ATTENDANCE
+PATCH  /teacher/session-series/:seriesId {fromDate, weekday?, startTime?, durationMinutes?, room?|null}
+                                          → {series, droppedChanges}; the old series ends before the change and a
+                                          new one starts, never rewriting the past: fromDate is today or later in
+                                          the series' zone, and the change starts after any later date the old
+                                          series keeps (one with attendance, or moved earlier), so tomorrow when
+                                          today's has attendance; the date rows it drops are counted; a series
+                                          that has not begun changes in place; 400 naming fromDate
+POST   /teacher/session-series/:seriesId/end {lastDate} → SessionSeries, or 204 when it was removed (it had not
+                                          begun and lastDate is before its first date); 400 naming lastDate
+                                          before yesterday, after the current last date or past two years;
+                                          409 SESSION_HAS_ATTENDANCE when a later occurrence has attendance;
+                                          later date rows without attendance go
+GET    /teacher/calendar?from=&to=&classId= → {sessions, assignmentEvents [{kind opens|closes, at, assignmentId,
+                                          title, classNames}], terms}; workspace.teacher; dates in the caller's
+                                          zone, to exclusive, 1 to 42 days (else 400 naming to); sessions of the
+                                          classes in scope, cancelled included; events of the published
+                                          assignments the caller reaches, on each assignment's own window (an
+                                          early close is the close), without per-student overrides; terms that
+                                          end on or after from; a classId outside scope 404
+GET    /teacher/attendance/sessions?classId=&before=&since=&marked=&limit= → {items [{id, classId, className,
+                                          room, startsAt, marked, studentCount, counts|null}], nextBefore,
+                                          notMarked}; teaching.attendance; started (startsAt ≤ now), uncancelled
+                                          sessions in scope, newest first, 20 a page, never splitting sessions
+                                          that start at one instant; notMarked counts every started session
+                                          without attendance in scope (and classId), whatever the page
+GET    /teacher/sessions/:sessionId/attendance → {session, term|null, rateScope term|overall, counts {present,
+                                          late, absent, unmarked}, students [{studentId, fullName, avatarUrl,
+                                          status|null, note|null, rate|null}]}; teaching.attendance; the roster
+                                          is the class's active student-role members plus anyone marked on the
+                                          session; rate is a whole percent rounded half up, (present + late) over
+                                          the marked, uncancelled sessions of the term holding today in the
+                                          caller's zone, or of every session, null when none counts
+PUT    /teacher/sessions/:sessionId/attendance {marks [{studentId, status|null, note?|null}] (1-200)} → the GET
+                                          shape; status null unmarks and drops the note; note absent keeps, null
+                                          or blank clears, 1-500; 422 SESSION_NOT_STARTED more than 15 minutes
+                                          before the start, 409 SESSION_CANCELLED, 422 VALIDATION_FAILED naming
+                                          the students off the roster or with a note and no status; one
+                                          attendance.saved audit row, none when nothing changed
 
 # teacher: question sets (content.questions.write; R7)
 GET    /teacher/question-sets           → {items}: the caller's own sets
@@ -4028,7 +4143,7 @@ POST   /admin/user-imports/:id/sheet    (people.users.manage) the importer only 
 
 # admin: classes across teachers (scope.all; T-R5.11)
 GET    /admin/classes                   ?tab=active|archived&q&teacher=disabled&page&limit (10, 20 or 50) → {items: [{id,
-                                          name, scheduleLabel, room, teacher {id, name, avatarUrl, disabled} | null,
+                                          name, scheduleLabel, room (derived, R8), schedule, teacher {id, name, avatarUrl, disabled} | null,
                                           studentCount, joinCode {code, expiresAt, maxUses, usesCount} | null, createdAt}],
                                           page, facets {active, archived}, disabledTeacherClasses}; every code in full, so
                                           no-store and 60/min and 600/h per actor
@@ -4049,6 +4164,14 @@ POST   /admin/settings/retention-impact {retention} -> {answers {attempts, answe
                                           skippedOwners} | null}: what tonight's sweep would do under it (§13.3); writes nothing
 POST   /admin/settings/logo             multipart {file, variant light|dark} -> {sha256, type, width, height}; 413 | 415
                                           MEDIA_TYPE_UNSUPPORTED (not a PNG) | MEDIA_UNREADABLE | IMAGE_DIMENSIONS; 20 an hour
+
+# admin: terms (system.settings.write; R8, DG-93)
+GET    /admin/settings/terms            → {items [{id, name, startsOn, endsOn, state current|upcoming|past}]}, newest
+                                          first, state on today in the caller's zone
+POST   /admin/settings/terms            {name, startsOn, endsOn} → 201 Term | PATCH /:id {name?, startsOn?, endsOn?}
+                                          → Term | DELETE /:id → 204; dates inclusive; 400 naming endsOn before
+                                          startsOn, or a blank name; 409 TERM_OVERLAPS {termId, name}, from the
+                                          exclusion constraint; audited term.created, term.updated, term.deleted
 
 # admin: audit log (system.audit.read; §13.4)
 GET    /admin/audit-log                 ?category=accounts|classes|attempts|tests|media|imports&q&range=today|7d|30d|all|custom
@@ -4081,7 +4204,15 @@ POST   /admin/ai/credit-requests/:id/approve | /decline → {request, allowance}
 
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
-GET    /app/classes
+GET    /app/classes                     → MyClass rows; since R8 each carries schedule and room, derived as
+                                          the teacher's are, and no date, note or count
+GET    /app/week?start=YYYY-MM-DD       → {start, end, days [{date, items}] (7)}; learning.take_tests (R8): start is
+                                          moved to its ISO week's Monday in the student's zone, today's week by
+                                          default; items are {kind: session, classId, className, startsAt,
+                                          durationMinutes, room, note, cancelled} for the classes the student is
+                                          a member of now, not archived, and {kind: due, assignmentId, title,
+                                          closesAt, state not_started|in_progress, durationMinutes|null} for
+                                          the assignments that close for them in the week, not handed in
 GET    /app/assignments                 → {dueNow,upcoming,completed}; a card with a live attempt
                                           carries liveAnsweredCount
 GET    /app/assignments/:id
