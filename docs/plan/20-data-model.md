@@ -1457,6 +1457,7 @@ listed here matches the spec.
 | D-83 | A session's id in the API is opaque text, `{seriesId}.{yyyymmdd}` for an occurrence and the row's uuid for a one-off, not a column. `series_date` keeps the occurrence's original date when it moves, and `UNIQUE (series_id, series_date)` names it | An occurrence's id is the same whether or not its row exists yet, so a client can link, edit or take attendance on it before the row is made; the write that needs the row creates it in the same transaction |
 | D-84 | Terms never overlapping is an exclusion constraint, `terms_no_overlap EXCLUDE USING gist (daterange(starts_on, ends_on, '[]') WITH &&)` (`00175`), not a check in Go | Two admins saving at once cannot both win, and the API maps the `23P01` to `TERM_OVERLAPS` with no pre-check. Range types carry their own GiST operator class, so no `btree_gist` extension is needed |
 | D-85 | A class's sessions and series `CASCADE` with the class, and a mark is `RESTRICT` on its session, so a class with attendance is never hard-deleted (`00177`, `00178`) | Attendance is a record R9's gradebook and reports read, as attempts are, so it holds the class (409 `referencedBy: attendance`); a timetable without marks is the class's own data and goes with it |
+| D-86 | A colleague thread is `kind = 'colleague'` with its own ordered pair, `colleague_low_id < colleague_high_id`, one thread per pair by a partial unique index; `00180`'s Down refuses while one exists (§69) | Two staff members in `staff_id` and `student_id` would make every read of the student side wrong for them, and the order turns "one thread per pair" into a plain unique index the first post can target. The v0.15.0 binary cannot read a colleague row and the pair cannot be rebuilt once the columns go, so the Down refuses as `00174`'s does for a flexible assignment |
 
 ---
 
@@ -1634,6 +1635,7 @@ the file it adds.
 | `00177_create_class_sessions.sql` | `class_sessions`: one-offs, per-date changes, occurrences with attendance; composite series key `CASCADE`, `UNIQUE (series_id, series_date)` | T-R8.2, D-82, D-83, D-85, §68 |
 | `00178_create_attendance_marks.sql` | `attendance_marks`, present, late or absent; every key `RESTRICT` | T-R8.2, D-85, §68 |
 | `00179_drop_messaging_ties_fill_triggers.sql` | drops `00167`'s two fill triggers and their functions; `messaging_ties` and its rows stay; Down recreates them with `00169`'s bodies | T-R8.2b, D-78, §63, §68 |
+| `00180_colleague_conversations.sql` | `conversations` gains `kind = 'colleague'` (`conversations_kind_check` re-added `NOT VALID` then validated), `colleague_low_id` and `colleague_high_id` (`RESTRICT`), `conversations_colleague_shape` and `conversations_colleague_columns` (`NOT VALID` then validated), `conversations_colleague_key` and the two side indexes; `SELECT` on the pair to `quizzivy_maintenance`; Down refuses while a colleague conversation exists; `lock_timeout` 5 s | F2 (T-F2.2), D-86, §69 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4524,6 +4526,7 @@ alone, `conversations_direct_shape`), with `conversations_participants_differ`. 
 `conversations_student_idx` on `(…, last_message_at DESC) WHERE kind = 'direct'` serve each side's list.
 Every key is `RESTRICT`: a class whose channel has posts, or an account with a thread, is never hard-deleted,
 and the 409 names `referencedBy: messages`. The app role inserts, and updates `last_message_at` alone.
+Since `00180` (F2) a third kind, a thread between two staff members, has its own pair of columns (§69).
 
 `00165_create_messages.sql` adds `app.messages`: `conversation_id`, `sender_id`, a client-made `client_id`,
 `body` and `attachment_id` (unique: one file belongs to one message), every key `RESTRICT`.
@@ -4558,11 +4561,12 @@ step, T-R8.2b) dropped both triggers and both functions** (§68); the table and 
 
 `quizzivy_maintenance` holds `DELETE` on the five tables and `SELECT` only on the columns D16's anonymisation
 finds rows by (D-77): `message_attachments (id, uploaded_by)`, `conversations (id, kind, staff_id,
-student_id)`, `messages (id, conversation_id, attachment_id)`, `conversation_reads (conversation_id,
-user_id)`, `messaging_ties (staff_id, student_id)`. Anonymisation (T-R7.12) deletes the account's direct
-threads with their messages, pointers, files' rows and bell items, and its ties, in one transaction; class
-channel posts stay. The objects of deleted file rows go at the next housekeeping run. `00168` grants it
-`SELECT (owner_id)` on `question_sets`, which the owner check of anonymisation reads. `00169` replaces the two
+student_id)` (and `colleague_low_id, colleague_high_id` since `00180`, §69), `messages (id, conversation_id,
+attachment_id)`, `conversation_reads (conversation_id, user_id)`, `messaging_ties (staff_id, student_id)`.
+Anonymisation (T-R7.12) deletes the account's direct threads (and since F2 its colleague threads, T-F2.5, §69)
+with their messages, pointers, files' rows and bell items, and its ties, in one transaction; class channel
+posts stay. The objects of deleted file rows go at the next housekeeping run. `00168` grants it `SELECT
+(owner_id)` on `question_sets`, which the owner check of anonymisation reads. `00169` replaces the two
 fill-trigger functions so that they skip an anonymised account (`anonymous-{id}@anonymous.invalid`) and
 deletes anonymised accounts' ties; its Down restores `00167`'s bodies and does not bring the deleted ties
 back.
@@ -4863,3 +4867,85 @@ deferred trigger fires at its commit as before. `app.messaging_ties` and its row
 `09`) now write the tie with the membership, and `99-assert` refuses a member not tied to their class's
 teacher. `TestTheTieTriggerDropKeepsTheTiesAndRollsBack` walks the file up, down and up over a stored
 tie.
+
+## 69. Colleague threads (T-F2.2, D-86)
+
+`00180_colleague_conversations.sql` gives `app.conversations` (§63) a third kind, a direct thread
+between two staff members (`docs/plan/77g-f2-messaging.md`, spec §8 Messages):
+
+```sql
+ALTER TABLE app.conversations DROP CONSTRAINT conversations_kind_check;
+ALTER TABLE app.conversations
+  ADD CONSTRAINT conversations_kind_check CHECK (kind IN ('class', 'direct', 'colleague')) NOT VALID;
+ALTER TABLE app.conversations VALIDATE CONSTRAINT conversations_kind_check;
+
+ALTER TABLE app.conversations
+  ADD COLUMN colleague_low_id  uuid REFERENCES app.users(id) ON DELETE RESTRICT,
+  ADD COLUMN colleague_high_id uuid REFERENCES app.users(id) ON DELETE RESTRICT;
+
+-- both NOT VALID, then validated
+CONSTRAINT conversations_colleague_shape CHECK (
+  kind <> 'colleague' OR (class_id IS NULL AND staff_id IS NULL AND student_id IS NULL
+    AND colleague_low_id IS NOT NULL AND colleague_high_id IS NOT NULL
+    AND colleague_low_id < colleague_high_id))
+CONSTRAINT conversations_colleague_columns CHECK (
+  kind = 'colleague' OR (colleague_low_id IS NULL AND colleague_high_id IS NULL))
+
+CREATE UNIQUE INDEX conversations_colleague_key ON app.conversations (colleague_low_id, colleague_high_id)
+  WHERE kind = 'colleague';
+CREATE INDEX conversations_colleague_low_idx  ON app.conversations (colleague_low_id,  last_message_at DESC)
+  WHERE kind = 'colleague';
+CREATE INDEX conversations_colleague_high_idx ON app.conversations (colleague_high_id, last_message_at DESC)
+  WHERE kind = 'colleague';
+
+GRANT SELECT (colleague_low_id, colleague_high_id) ON app.conversations TO quizzivy_maintenance;
+```
+
+- **The pair.** A colleague thread names its two staff accounts and nothing else, the smaller uuid
+  in `colleague_low_id`. The order is what makes one thread per pair whoever writes first:
+  `conversations_colleague_key` is the target of the first post's `INSERT … ON CONFLICT DO
+  NOTHING` (T-F2.4), as `conversations_direct_key` is for a staff member's thread with a student,
+  and the order check also keeps the two apart, so no separate "differ" check is needed. A class
+  channel or a direct thread names no colleague (`conversations_colleague_columns`). The pair has
+  columns of its own because `staff_id` and `student_id` are read as "the staff side" and "the
+  student side" by the student's list, unread counts, notices, anonymisation and the export: two
+  staff members there would be wrong in each of them. A members table would allow groups, which F2
+  does not build (plan 77g, Q7).
+- **The checks** are added `NOT VALID` and validated in the same file, as `00174` does: every
+  existing row is a class or a direct thread with both columns NULL, so the validation finds
+  nothing. The kind check is dropped and re-added under the same name, also `NOT VALID` then
+  validated. `lock_timeout` is 5 s in the Up and the Down; the file is one transaction, so the
+  `ACCESS EXCLUSIVE` its `ALTER`s take is held to its commit, and the table holds one row per
+  thread, so that is brief. The three indexes are built in place, not `CONCURRENTLY`. The two keys
+  lock `app.users` while the file runs.
+- **The rolling deploy.** A v0.15.0 pod inserts a direct thread or a channel naming neither new
+  column, so both are NULL and every check passes; its `ON CONFLICT` targets infer `00164`'s
+  partial indexes as before (`TestAThreadWrittenTheV0150WayStillLands`). Its thread lists, threads
+  and unread counts filter on `kind`, so a colleague row, which only the F2 binary writes, does not
+  reach them, and its email check finds no reader for one. Two v0.15.0 reads take any kind, and the
+  F2 binary answers both: the data export writes a colleague row as kind `colleague` with its pair
+  in `colleague_a_id` and `colleague_b_id`, two columns appended after `last_message_at` so R7's
+  columns keep their positions (T-F2.5; an export a v0.15.0 pod runs while one exists lists it with
+  no participants), and the attachment download decides by the thread's kind, where a colleague
+  thread's file had reached the channel check and answered 500 (T-F2.4).
+- **The keys** are `RESTRICT`, as `staff_id` and `student_id` are. `deleteUser` answers 409
+  `referencedBy: messages` for `conversations_colleague_low_id_fkey` and
+  `conversations_colleague_high_id_fkey` (T-R2.13's map in `identity/repositories/delete.go`;
+  `TestARefusedDeletionNamesTheColleagueThreadAUserHolds`). D16's anonymisation removes a disabled
+  account's colleague threads, matching either column, with their messages, reads, attachment rows
+  and both members' `msg:{conversation}` bell items, in the transaction that removes its direct
+  threads; the objects go at the next housekeeping run (T-F2.5). A teacher who owns content is
+  still skipped.
+- **The grants.** `quizzivy_app` reads and inserts the pair through its table-wide grants and still
+  updates `last_message_at` alone (§63), so a pair is never rewritten. `quizzivy_maintenance` reads
+  the pair, for anonymisation, beside `id, kind, staff_id, student_id`; it writes neither column.
+  `privileges_test.go` pins both (`TestTheColleagueColumnsHoldWhatT_F2_2Grants`).
+- **The Down** refuses while a colleague conversation exists (D-86); otherwise it revokes the
+  grant, drops the three indexes, the two checks and the two columns, and restores the two-kind
+  check. goose up, down and up runs in CI, and
+  `TestTheColleagueConversationsFileAppliesOverThreadsAndRollsBack` pins the refusal and that the
+  schema after the Down is exactly `00179`'s. The `REVOKE` cannot be bitten, since dropping the
+  columns drops their grants; it mirrors the Up, as `00174`'s does.
+- **The ties** (`app.messaging_ties`, §63) are unchanged: R8's `00179` dropped `00167`'s fill
+  triggers, so `shared/ties` alone writes a tie (`TestTheModuleAloneTiesAnEnrolledStudent`), and
+  F2's staff rule stops reading them (T-F2.3) while "Former student" and "Former teacher" still do.
