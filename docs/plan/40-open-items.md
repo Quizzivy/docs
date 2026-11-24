@@ -15,7 +15,7 @@ Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
 "Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
-O-R5.1 to O-R5.13, R6's O-R6.1 to O-R6.10, R7's O-R7.1 to O-R7.20, R8's O-R8.1 to O-R8.11, below).
+O-R5.1 to O-R5.13, R6's O-R6.1 to O-R6.10, R7's O-R7.1 to O-R7.20, R8's O-R8.1 to O-R8.11, F2's O-F2.1 to O-F2.3, below).
 
 ---
 
@@ -1091,6 +1091,30 @@ each under DG-92 or DG-93. **Open:** whether the design system gains each, or th
 (identity, `limits_guard_db_test.go`) on api#88, whose diff cannot reach identity; it passed on a
 rerun. It may be a real lock-order bug between the ways to take a seat or a teacher place.
 **Default:** R8 ships without a change there; api#89 is investigated in its own PR.
+
+## Phase F — F2's open items (v0.15.x)
+
+What F2's web pull requests left open (Quizzivy/web#178 to #180), moved here by T-F2.10. Each
+default is what F2 ships; the design departures behind them are rows of DG-233 in
+`docs/design/gaps.md`.
+
+### O-F2.1 — Design-system gaps found in F2 · design team
+**Default (built):** the picker's option row is `PersonOption`, lifted out of the share dialog's
+`PeoplePicker` into `components/shared` as the F2 page's handoff asks, and both pickers draw it.
+The "Quizzivy" design system has no copy of `PersonOption`, `SearchInput` or `DialogShell`, and
+`ThreadDetails`' rows are text only (no link or download row), which is why "Tệp đã chia sẻ" is
+drawn as text. **Open:** whether the design system gains each.
+
+### O-F2.2 — Two empty sentences the F2 page does not draw · Thuong
+**Default (built):** New message with a filter that lists no one and no search reads "Không có học
+viên nào ở đây." / "No students here.", and with no colleague "Chưa có đồng nghiệp nào để nhắn
+tin." / "No colleagues to message yet." (`messages.picker.noStudents`,
+`messages.picker.noColleagues`, web#178). **Open:** the owner's wording.
+
+### O-F2.3 — A colleague thread's files in Details · contract
+**Default (built):** Details lists "Tệp đã chia sẻ" from the messages the thread has loaded, so a
+long thread's oldest files appear only after "Xem tin nhắn cũ hơn" (web#179). **Next step, if
+asked:** a contract operation listing a thread's files.
 
 ---
 

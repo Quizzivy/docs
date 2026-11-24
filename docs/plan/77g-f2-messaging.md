@@ -300,7 +300,8 @@ with these differences, each named in sdk#39:
   the owner's contract-first rule as in R8, and api#96 then pinned its `-dev` build. The last box is
   not met as written.
 
-`make gen` is its own commit in both pull requests, and `make sdk-check` reports nothing breaking,
+api and web first pinned sdk#39's build; Quizzivy/api#101 and Quizzivy/web#180 pin sdk#40's,
+`0.15.1-dev.202611232335.g6e4acc5`. `make gen` is its own commit in both pull requests, and `make sdk-check` reports nothing breaking,
 so neither carries `contract-breaking`.
 
 ### T-F2.2 — Migration: colleague conversations
@@ -494,24 +495,27 @@ pair and removes both members' `msg:<id>` bell items. No migration: `00180`'s gr
 `pages/teacher/TeacherMessagesPage.tsx`, `lib/i18n/locales/{vi,en}/teacher.json`
 **Size:** M
 **Done when:**
-- [ ] New message at the list's head opens the picker as on the F2 page: students and colleagues,
+- [x] New message at the list's head opens the picker as on the F2 page: students and colleagues,
       the search, the students' filter (all, the caller's classes, one class, in no class), paged
       on scroll; a row with a thread opens it, any other row opens the empty thread with the
       composer focused.
-- [ ] The search's candidates and a direct row's sub-line show the caller's classes, else
+- [x] The search's candidates and a direct row's sub-line show the caller's classes, else
       `otherClassNames`, else "In no class", and "Former student" as today.
-- [ ] Details for a student the caller does not teach says so in one sentence and links nothing
+- [x] Details for a student the caller does not teach says so in one sentence and links nothing
       out of scope.
-- [ ] Vietnamese is written first, and the pull request lists every new key.
+- [x] Vietnamese is written first, and the pull request lists every new key.
 
-**As built** (not yet merged: Quizzivy/web `feature/t-f2-06-any-student-picker` at 2d542e92, its
-pull request not yet open; to be finalised when it merges): New message ("Tin nhắn mới") before
-New announcement opens `RecipientPicker` in a `DialogShell`, its search the list's combobox (↑/↓,
-Enter, Esc), its rows `listMessageRecipients` a page at a time. The option row is lifted out of the
-share dialog's `PeoplePicker` into `components/shared/PersonOption.tsx`, which both pickers draw.
-Colleagues moved to T-F2.7, which owns their route. Two sentences the page does not draw, for a
-list empty without a search (`messages.picker.noStudents`, `messages.picker.noColleagues`), wait
-for the owner's eye.
+**As built** (Quizzivy/web#178, merged into `work/messaging-f2` at 682ec14e): New message ("Tin
+nhắn mới") before New announcement opens `RecipientPicker` in a `DialogShell` (520 × 600 at 8%
+from the top; 336 wide on a phone), its search the list's combobox (↑/↓, Enter, Esc), its rows
+`listMessageRecipients` a page at a time. Choosing a row opens `/teacher/messages/student/:id` with
+the composer focused. The option row is lifted out of the share dialog's `PeoplePicker` into
+`components/shared/PersonOption.tsx`, which both pickers now draw (a long name truncates there now).
+Colleagues in the picker came with T-F2.7, which owns their route. Departures from the page, rows
+of DG-233 in `docs/design/gaps.md`: a row is 52px high, 56 on a phone (the page 55 / 59), from the
+product's line heights; a search keeps the server's order by name; and two sentences the page does
+not draw, for a list empty without a search (`messages.picker.noStudents`,
+`messages.picker.noColleagues`), wait for the owner's eye (O-F2.2).
 
 ### T-F2.7 — Staff: colleague threads
 **Depends on:** T-F2.0, T-F2.1
@@ -521,23 +525,28 @@ for the owner's eye.
 `lib/i18n/locales/{vi,en}/{teacher,common}.json`
 **Size:** M
 **Done when:**
-- [ ] The Colleagues tab, and colleague rows merged into All by `lastMessageAt`, as on the F2 page;
+- [x] The Colleagues tab, and colleague rows merged into All by `lastMessageAt`, as on the F2 page;
       the route `/teacher/messages/colleagues/:colleagueId` opens a thread.
-- [ ] A colleague thread polls, pages, sends optimistically, retries and attaches exactly as a
+- [x] A colleague thread polls, pages, sends optimistically, retries and attaches exactly as a
       student's (R7's `useThread` and composer), with no attempt cards and no "Seen by"; a
       disabled colleague replaces the composer with R7's sentence.
-- [ ] The bell's `message.received` item with `colleagueId` opens the colleague thread; the
+- [x] The bell's `message.received` item with `colleagueId` opens the colleague thread; the
       sidebar count includes colleague threads (it reads `unreadMessages`).
-- [ ] Unit tests cover the merge order, the route, the disabled state and the bell target; R7's
+- [x] Unit tests cover the merge order, the route, the disabled state and the bell target; R7's
       Messages tests pass unedited.
 
-**As built** (not yet merged: Quizzivy/web `feature/t-f2-07-colleague-threads` at e679c1d3, stacked
-on T-F2.6, its pull request not yet open; to be finalised when it merges): All merges the two lists
-in `features/messages/merge.ts` (`mergeByLatest`: each list keeps its order, equal times keep the
-staff row first); the picker gains "Học viên | Đồng nghiệp"; the composer follows `canPost`, so a
-colleague who left the workspace but is not disabled (T-F2.4) gets R7's sentence too; Details lists
-"Tệp đã chia sẻ" from the messages loaded, since the contract has no list of a thread's files; the
-page's lead and the "Tin nhắn mới" switch's hint name colleagues.
+**As built** (Quizzivy/web#179, merged into `work/messaging-f2` at 0123516a): All merges the two
+lists in `features/messages/merge.ts` (`mergeByLatest`: each list keeps its order, equal times keep
+the staff row first, so a channel nobody posted in stays last); the search shows colleagues with no
+thread under "Đồng nghiệp chưa nhắn tin"; the picker gains "Học viên | Đồng nghiệp"; the composer
+follows `canPost`, so a colleague who left the workspace but is not disabled (T-F2.4) gets R7's
+sentence too; the page's lead and the "Tin nhắn mới" switch's hint name colleagues. Departures, in
+DG-233: the four tabs are `Segmented` (fill) with 5px side padding, a 4px gap and 12.5px labels so
+"Đồng nghiệp 1" fits the 320px list, and two two-digit counts wrap the last tab; Details lists
+"Tệp đã chia sẻ" from the messages loaded, since the contract has no list of a thread's files
+(O-F2.3); and when the colleague list cannot be read, All shows the rest and Colleagues the error
+with Retry, a state the page does not draw. The 429 sdk#40 added needs no client change: both reads
+already show any error with Retry.
 
 ### T-F2.8 — The student's view
 **Depends on:** T-F2.0
@@ -562,24 +571,36 @@ the new line.
 **Touches:** `Quizzivy/api` `seed/`, `Quizzivy/web` `web/tests/e2e/`
 **Size:** M
 **Done when:**
-- [ ] The seed has a second teacher with a colleague thread with the seeded teacher (a PDF in it)
+- [x] The seed has a second teacher with a colleague thread with the seeded teacher (a PDF in it)
       and a student in no class.
-- [ ] A stubbed E2E walks the picker (filter, search, open an existing thread, start a new one)
+- [x] A stubbed E2E walks the picker (filter, search, open an existing thread, start a new one)
       and the Colleagues tab.
-- [ ] A live E2E: the seeded Admin writes to a student of the seeded teacher's class, the student
+- [x] A live E2E: the seeded Admin writes to a student of the seeded teacher's class, the student
       reads "Giáo viên của trung tâm" and replies; the teacher writes to the student in no class;
       the two teachers exchange a message with a PDF, and the receiver downloads it and sees the
       unread count clear.
 
-**As built** (the api half: Quizzivy/api#100, open, `seed/14-dev-colleagues.sql`; the web half not
-yet built; to be finalised): the second teacher is the existing Minh (`giaovien2@quizzivy.com`,
-the live suite's `TEACHER_2`), whose thread with Lan holds three messages, nothing unread on either
-side, and a PDF row written as the upload writes it, with the bytes and SHA-256 of a real one-page
-PDF. The seed cannot write to the object store, and neither can CI's `e2e-live` job, so in dev that
-row has no object: the live spec uploads its own PDF, and the seed's README gives the command that
-copies the bytes to the key on a dev stack. The student in no class is Hồ Ngọc Diệp
+**As built** (the seed: Quizzivy/api#100, merged into `work/messaging-f2` at 567a4768,
+`seed/14-dev-colleagues.sql`; the E2E and the check against the page: Quizzivy/web#180, merged into
+`work/messaging-f2`): the second teacher is the existing Minh (`giaovien2@quizzivy.com`, the live
+suite's `TEACHER_2`), whose thread with Lan holds three messages, nothing unread on either side, and
+a PDF row written as the upload writes it, with the bytes and SHA-256 of a real one-page PDF. The
+seed cannot write to the object store, and neither can CI's `e2e-live` job, so in dev that row has
+no object: the live spec uploads its own PDF, and the seed's README gives the command that copies
+the bytes to the key on a dev stack. The student in no class is Hồ Ngọc Diệp
 (`diep.ho@quizzivy.com`), created by no one and tied to no one; the Admin's student in Lan's class
 is Bùi Ngọc Mai (`ngocmai.bui@quizzivy.com`, from `08`). `99-assert.sql` checks each.
+
+web#180 adds `messages-f2.spec.ts` (stubbed, two tests, every stub and post checked against the
+contract) and `messages-f2.live.spec.ts` (three tests on the seed, each reading its own text or a
+delta, so two runs on one database pass); the whole live suite passed 36 of 36 on a fresh
+database. R7's `messages.live.spec.ts` changed on purpose: the Admin naming another teacher's
+student now reads the Admin's own empty thread (200, none of the others' messages) where R7 answered
+404, which still pins D17. The comparison with the F2 page at 360, 768, 1024, 1280 and 1440, light
+and dark, lists nine departures under DG-233: (1) to (7) are the ones T-F2.6 to T-F2.8 accepted, and
+(8) R7's thread header and composer heights and (9) Messages' lead on a phone come from R7's shared
+parts, which F2 reuses unchanged. web#180 also pins `0.15.1-dev.202611232335.g6e4acc5` (sdk#40), as
+Quizzivy/api#101 does, and points `api-ref` at F2 on api `develop` (Quizzivy/api#102, 31d42d7e).
 
 ### T-F2.10 — Documents
 **Depends on:** lands with T-F2.3 to T-F2.8, never after
@@ -599,10 +620,10 @@ non-negotiable on a direct message's two participants), `docs/plan/20-data-model
 **As built** (this pull request): the spec's changes are under "Changes pending (F2, v0.15.x)",
 above v0.122's heading, and in §1, §8 (the route row, Messages, and a paragraph for New message and
 Colleagues), §9's student route row, §13.3 and §13.5, and §15 (the listing, the summary, the
-notifications paragraph and Messages). T-F2.6 and T-F2.7 are marked as not yet merged there and
-here. The data model's section is §69 and its row D-86, the next free ones, with the migration
-inventory's row and §63 pointing at §69. `AGENTS.md`'s rule names both kinds of thread, and its
-append-only rule names colleague conversations among those anonymisation deletes.
+notifications paragraph and Messages). The data model's section is §69 and its row D-86, the next
+free ones, with the migration inventory's row and §63 pointing at §69. `AGENTS.md`'s rule names both
+kinds of thread, and its append-only rule names colleague conversations among those anonymisation
+deletes. `40-open-items.md` gains O-F2.1 to O-F2.3, what the web pull requests left open.
 
 ### T-F2.11 — Release v0.15.x
 **Depends on:** every task above, and v0.15.0 released
