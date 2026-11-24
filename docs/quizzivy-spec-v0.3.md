@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.122 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.123 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes pending (F2, v0.15.x)**
+**Changes since v0.122**
 
 F2, messaging to any student and between colleagues (`docs/plan/77g-f2-messaging.md`), a release outside the train that the owner asked for: every staff member who opens the teacher workspace may write to any enabled student, a student still writes first only to their own teachers and replies in any thread a staff member started, and two staff members have a direct thread of their own. T-F2.10 records the release's tasks below; the release PR numbers the version (§18).
 
