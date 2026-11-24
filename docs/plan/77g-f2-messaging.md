@@ -209,20 +209,24 @@ names are the code's; line numbers are left out because they drift.
 check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
 **Size:** M
 **Done when:**
-- [ ] The page follows the proposal layout (cover, decisions, frames at 1280 and 360 in light and
+- [x] The page follows the proposal layout (cover, decisions, frames at 1280 and 360 in light and
       dark, state table, copy vi/en, open questions, handoff), with `R7 Messages.dc.html`'s own
       list, thread and student frames set beside the new ones.
-- [ ] It draws: the list with New message and the Colleagues tab; the picker's students and
+- [x] It draws: the list with New message and the Colleagues tab; the picker's students and
       colleagues, with its filter, a search, a row that already has a thread, no match, loading
       and error; the list's search finding students beyond the caller's classes and colleagues;
       a thread with a student the caller does not teach and its Details; a colleague thread
       (empty, normal with files from both sides, disabled account, Details); the student's view of
       a thread a staff member who does not teach them started.
-- [ ] DG-233 is added to `gaps.md` and names the page; the generator's binding check
+- [x] DG-233 is added to `gaps.md` and names the page; the generator's binding check
       (`generators/check.js` in the shared notes folder) passes on every state.
-- [ ] A design issue in `Quizzivy/web` with Plan ID DG-233 on the board, and the page published to
+- [x] A design issue in `Quizzivy/web` with Plan ID DG-233 on the board, and the page published to
       the "Quizzivy mockups" canvas. Its questions are this file's Q1 to Q13, on one "questions
       for the owner" issue for F2.
+
+**As built** (Quizzivy/web#158, merged into `develop` at 3e48f5eb; the owner's approval recorded in
+Quizzivy/web#159): the page is `F2 Messaging.dc.html` under DG-233, and the owner approved Q1 to Q13
+at their defaults on Quizzivy/web#157, which is closed.
 
 ## B. Contract and server
 
@@ -231,15 +235,15 @@ check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
 **Touches (Quizzivy/sdk):** `api/openapi.yaml`, `sdk/`
 **Size:** M
 **Done when:**
-- [ ] The `messaging-peer` kind's description reads "a student a staff member may read a direct
+- [x] The `messaging-peer` kind's description reads "a student a staff member may read a direct
       thread with: one they have a thread with, or any account that passes the student
       predicate"; `getStaffDirectThread`, `postStaffDirectMessage` and
       `markStaffDirectThreadRead` say any enabled student may be written to, and
       `StudentRow.canMessage` / `ClassMember.canMessage` say the same.
-- [ ] `StaffThread` and the direct thread's peer gain `otherClassNames` (array of strings, names
+- [x] `StaffThread` and the direct thread's peer gain `otherClassNames` (array of strings, names
       only): the student's current classes that are not archived and that the caller does not
       teach. Required in the response; additive.
-- [ ] `GET /teacher/messages/recipients` (`listMessageRecipients`, `workspace.teacher`): query
+- [x] `GET /teacher/messages/recipients` (`listMessageRecipients`, `workspace.teacher`): query
       `audience` (`students` | `colleagues`, required), `q` (≤ 200), `classId` (a class in the
       caller's scope, `x-resource` kind `class`) or `inNoClass` (boolean), `cursor`, `limit`
       (1–50, default 30). Answers `{recipients: [MessageRecipient], nextCursor}`.
@@ -247,10 +251,10 @@ check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
       `classNames` the caller's classes the student is in, `otherClassNames` the rest, both empty
       for a colleague; `roleName` the colleague's role, `null` for a student. Limited to 60 a
       minute per signed-in user. Its description carries the leak review (T-F2.7).
-- [ ] `GET /teacher/messages/colleagues` (`listColleagueThreads`, `workspace.teacher`, `?q=`):
+- [x] `GET /teacher/messages/colleagues` (`listColleagueThreads`, `workspace.teacher`, `?q=`):
       `{items: [ColleagueThread]}`, where `ColleagueThread {colleagueId, title, avatarUrl, roleName, candidate, disabled, lastMessageAt, preview, unread}`;
       with `q`, after the threads, up to 20 colleagues with no thread as `candidate: true`.
-- [ ] `GET /teacher/messages/colleagues/{colleagueId}` (`getColleagueThread`), `POST` on the same
+- [x] `GET /teacher/messages/colleagues/{colleagueId}` (`getColleagueThread`), `POST` on the same
       path (`postColleagueMessage`, `{clientId, body?, attachmentId?}`, 201 or 200 on a repeated
       `clientId`) and `POST …/{colleagueId}/read` (`markColleagueThreadRead`), all
       `workspace.teacher`. `{colleagueId}` declares a new `x-resource` kind
@@ -258,13 +262,46 @@ check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
       `ColleagueDirectThread {colleague: {id, name, avatarUrl, roleName, disabled, canPost}, items: [StaffMessage], nextBefore, latestId}`,
       with no `contextEvents`; a post to a disabled colleague answers 409
       `MESSAGING_NOT_ALLOWED`.
-- [ ] `NotificationTarget` gains `colleagueId` (optional), present on a `message.received` item
+- [x] `NotificationTarget` gains `colleagueId` (optional), present on a `message.received` item
       for a colleague thread; the kinds table says a colleague's item carries no `className`.
-- [ ] The upload and staff download describe the colleague thread as a place a file is sent.
-- [ ] No enum gains a value. `make gen` is its own commit; `make sdk-check` passes without
+- [x] The upload and staff download describe the colleague thread as a place a file is sent.
+- [x] No enum gains a value. `make gen` is its own commit; `make sdk-check` passes without
       `contract-breaking`.
 - [ ] The api pull request on this contract (T-F2.2 onward) is green before this one merges
       (D-082 (iii)).
+
+**As built** (Quizzivy/sdk#39, merged at 5a56c452, `@quizzivy/sdk`
+0.15.1-dev.202611232146.g5a56c45; Quizzivy/sdk#40, merged at 6e4acc51): the contract is as above,
+with these differences, each named in sdk#39:
+
+- **`mine`**, a fourth students' filter added in review: `mine=true` keeps the students of any
+  current class in the caller's class scope ("Học viên lớp của tôi"), as the F2 page draws it.
+  `classId`, `mine=true` and `inNoClass=true` are one at most, none for `audience=colleagues`;
+  `mine=false` and `inNoClass=false` are no filter.
+- **`roleBuiltinKey`** (`BuiltinRoleKey | null`) beside `roleName` on `MessageRecipient`,
+  `ColleagueThread` and `ColleagueDirectThreadPeer`: built-in roles are stored under their
+  Vietnamese seed names, and the web shows a built-in role by its localised name as
+  `CurrentUserRole` does. `CurrentUserRole`'s description now names a colleague's role as an
+  exception to "no payload names another person's role".
+- **Lists under `threads` and `messages`, not `items`**: `listColleagueThreads` answers
+  `{threads}` and `ColleagueDirectThread` is `{colleague, messages, nextBefore, latestId}`, as
+  `listStaffThreads` and `StaffDirectThread` are. The header keeps `items` for lists of owned
+  resources that declare `x-resource-list`, and a thread is in both participants' lists.
+- **A disabled account with no thread answers 404** on `getStaffDirectThread` and
+  `getColleagueThread`, as the T-F2.3 and T-F2.4 tables say; the kind keeps this file's sentence and
+  adds "A disabled account is one only through a thread that exists."
+- **The finder's 400s** (`VALIDATION_FAILED`): two students' filters, a students' filter with
+  `audience=colleagues`, and a `cursor` the list did not give. `cursor` is opaque (up to 512
+  characters), not a uuid, so it names no resource. Rows are ordered by name, then id.
+- **The colleague reads' 429**: sdk#39 stated limits only where this file asked for one (the finder
+  and the colleague post); T-F2.4 limits `listColleagueThreads` and `getColleagueThread` to 60 a
+  minute, so sdk#40 declares their 429.
+- **The order of D-082 (iii) is inverted**: sdk#39 merged before the api pull requests on it, under
+  the owner's contract-first rule as in R8, and api#96 then pinned its `-dev` build. The last box is
+  not met as written.
+
+`make gen` is its own commit in both pull requests, and `make sdk-check` reports nothing breaking,
+so neither carries `contract-breaking`.
 
 ### T-F2.2 — Migration: colleague conversations
 **Depends on:** T-F2.1
@@ -274,10 +311,10 @@ check went with the CI trim (Quizzivy/web 4be1985f), so neither is regenerated.
 test, `docs/plan/20-data-model.md`
 **Size:** M
 **Done when:**
-- [ ] It is numbered after R8's migrations, and R8's trigger drop is on `develop` first (R8 and
+- [x] It is numbered after R8's migrations, and R8's trigger drop is on `develop` first (R8 and
       F2, above); a test enrols a student through the module and finds the tie, so `shared/ties`
       alone still writes them.
-- [ ] `colleague_conversations`:
+- [x] `colleague_conversations`:
       - `conversations_kind_check` becomes `kind IN ('class', 'direct', 'colleague')`, added
         `NOT VALID` and validated in the same file.
       - `colleague_low_id` and `colleague_high_id`, `uuid NULL REFERENCES app.users(id) ON DELETE
@@ -295,15 +332,28 @@ test, `docs/plan/20-data-model.md`
       - Down refuses while a colleague conversation exists (the v0.15.0 binary cannot read one,
         as `00174`'s Down refuses for a flexible assignment), then drops the indexes, the checks
         and the columns and restores the two-kind check.
-- [ ] The new keys join T-R2.13's map in `identity/repositories/delete.go`:
+- [x] The new keys join T-R2.13's map in `identity/repositories/delete.go`:
       `conversations_colleague_low_id_fkey` and `conversations_colleague_high_id_fkey` answer
       `referencedBy: messages`; an integration test deletes a teacher with a colleague thread and
       gets 409, never a 500.
-- [ ] `constraints_test.go` covers both checks and the unique index (a pair written high-first
+- [x] `constraints_test.go` covers both checks and the unique index (a pair written high-first
       is refused; a second thread for a pair is refused); `privileges_test.go` the maintenance
       grant. goose up/down/up passes, and an integration test inserts a direct thread and a class
       channel the v0.15.0 way (no new column named).
-- [ ] `20-data-model.md` gains the section and its D-row (T-F2.10).
+- [x] `20-data-model.md` gains the section and its D-row (T-F2.10).
+
+**As built** (Quizzivy/api#96, merged into `work/messaging-f2` at 74e94863):
+`00180_colleague_conversations.sql`, numbered after R8's `00179`, which had dropped the fill
+triggers, so the file touches none. api#96 also merged `develop` (v0.15.0) into the branch, pinned
+the merged contract and answered 501 for the five new operations from `core/router/f2_pending.go`
+until T-F2.3 and T-F2.4 replaced them (the file is gone).
+`TestAColleagueThreadIsAnOrderedPairAndNothingElse`, `TestTheColleagueColumnsHoldWhatT_F2_2Grants`,
+`TestTheColleagueConversationsFileAppliesOverThreadsAndRollsBack` (the schema after the Down is
+`00179`'s), `TestAThreadWrittenTheV0150WayStillLands` (v0.15.0's own `INSERT … ON CONFLICT`
+statements), `TestARefusedDeletionNamesTheColleagueThreadAUserHolds` and
+`TestTheModuleAloneTiesAnEnrolledStudent` pin the boxes. `conversations_colleague_shape` refuses
+both a high-first and an equal pair, so no "differ" check is added. The data model's section is §69
+and its row D-86 (T-F2.10).
 
 ### T-F2.3 — Staff to any student
 **Depends on:** T-F2.2
@@ -313,27 +363,42 @@ test, `docs/plan/20-data-model.md`
 the Students and class-roster reads that carry `canMessage`
 **Size:** M
 **Done when:**
-- [ ] `Eligibility.Peer` is "a thread, or a student, never yourself": `DirectFacts` loses `Tied`
+- [x] `Eligibility.Peer` is "a thread, or a student, never yourself": `DirectFacts` loses `Tied`
       and `Created`; `PostDirect` still needs the account enabled and a student. The table test
       covers: another teacher's student, a student in no class, a disabled student (readable when
       a thread exists, 404 without one, 409 on a post), a staff account (404 without a thread),
       an anonymised account (404), yourself (404).
-- [ ] `MessagingPeerIDs` and `CanMessage` say the same in SQL, once, and `StudentRow.canMessage`
+- [x] `MessagingPeerIDs` and `CanMessage` say the same in SQL, once, and `StudentRow.canMessage`
       and `ClassMember.canMessage` read it; an anonymised account is never a peer.
-- [ ] The list's search returns, after the threads, up to 20 enabled students with no thread whose
+- [x] The list's search returns, after the threads, up to 20 enabled students with no thread whose
       names, or whose current class names, match; `former` is as today; `otherClassNames` is
       filled on every direct row and candidate.
-- [ ] `listMessageRecipients` for `students`: enabled students by name (accent-insensitive, the
+- [x] `listMessageRecipients` for `students`: enabled students by name (accent-insensitive, the
       query as the share directory's), the caller's classes first in `classNames`, filtered by
       `classId` (one of the caller's classes; another's answers 404 by `x-resource`) or
       `inNoClass`; keyset-paged by folded name and id; `threadExists` and `canPost` per row.
-- [ ] The isolation suite: `messaging-peer` no longer follows the other teacher's scope, so the
+- [x] The isolation suite: `messaging-peer` no longer follows the other teacher's scope, so the
       suite's table records it as an exemption with the reason ("any student may be written to;
       the thread read is the caller's own"), and explicit cases hold D17: teachers A and B each
       write to student S, and A's read returns only A's messages, B's only B's, and the Admin's
       read of S returns the Admin's own empty thread.
-- [ ] Context events in a thread with a student the reader does not teach are the reader's
+- [x] Context events in a thread with a student the reader does not teach are the reader's
       assignment scope as today, so none appear; a test pins it.
+
+**As built** (Quizzivy/api#97, merged into `work/messaging-f2` at 2d8b4293; its review's cursor fix
+in Quizzivy/api#99): `DirectFacts` loses `Tied` and `Created` and gains `Anonymised`, so
+`Peer = Exists && !Self && !Anonymised && (Conversation || (Enabled && Student))`.
+`visibility.CanMessage` is the post rule and `MessagingPeerIDs` "a thread with the caller, or
+`CanMessage`", and the database table asserts each equals the manager's answer row by row.
+`listMessageRecipients` matches the full or display name only, accent-insensitively; `mine` and
+`classId` read the class scope (every class under `scope.all`), `classId` takes an archived class
+of the caller's, and `inNoClass` counts a student whose only classes are archived. The cursor is
+the row's id (`base64url("recipients:" + id)`), so a long folded name never overflows it; after
+the review it reads its row again only while the audience lists it, so a cursor naming an account
+outside the audience ends the list instead of placing it among the names. The isolation table
+gains `exempt` for a slot whose kind no longer follows another owner's scope: the three staff
+direct operations record `path studentId` with "any student may be written to; the thread read is
+the caller's own". The ties stay, read by `former` only.
 
 ### T-F2.4 — Colleague threads
 **Depends on:** T-F2.2
@@ -344,34 +409,57 @@ the Students and class-roster reads that carry `canMessage`
 `messaging-colleague` resolver, `server/tests/isolation_*_test.go`
 **Size:** L
 **Done when:**
-- [ ] `ColleagueFacts` and `Eligibility.Colleague`: a thread between the two, or an account that
+- [x] `ColleagueFacts` and `Eligibility.Colleague`: a thread between the two, or an account that
       opens the teacher workspace and is not a student, not anonymised and not yourself; a post
       also needs it enabled. The table test covers a teacher, an Admin, a custom staff role with
       the workspace, a role with only the Admin console (404), a student (404), a disabled
       colleague (readable with a thread, 409 on a post), yourself (404).
-- [ ] The first post creates the conversation with the pair ordered low-first
+- [x] The first post creates the conversation with the pair ordered low-first
       (`INSERT … ON CONFLICT DO NOTHING` on the partial unique index), locks it before the
       message id is made as R7's posts do, and bumps `last_message_at`; a repeated `clientId`
       answers 200 with the existing message.
-- [ ] `listColleagueThreads` and `getColleagueThread` read only threads where the caller is one of
+- [x] `listColleagueThreads` and `getColleagueThread` read only threads where the caller is one of
       the pair; `listMessageRecipients` for `colleagues` lists colleagues by name with
       `threadExists`.
-- [ ] A file is sent in a colleague thread exactly as in a student's; the download admits the
+- [x] A file is sent in a colleague thread exactly as in a student's; the download admits the
       two colleagues and the uploader before sending, and answers 404 to anyone else, an Admin
       included.
-- [ ] `StaffUnread` (`/teacher/summary.unreadMessages`) adds the colleague threads past the
+- [x] `StaffUnread` (`/teacher/summary.unreadMessages`) adds the colleague threads past the
       caller's pointer, never their own messages.
-- [ ] `message.received` for a colleague thread: one item per reader per thread, upserted while
+- [x] `message.received` for a colleague thread: one item per reader per thread, upserted while
       unread, its target `{route: messages, colleagueId}`, honouring the reader's in-app switch;
       the email under the same switch, wait and dedupe as a student's thread, naming the sender
       and no class.
-- [ ] Rate limits: colleague posts at 30 a minute and 500 a day per staff user, reads and the
+- [x] Rate limits: colleague posts at 30 a minute and 500 a day per staff user, reads and the
       recipients list at 60 a minute, in `PrincipalRateLimits()`.
-- [ ] Every new operation joins the isolation suite: `{colleagueId}` resolves a colleague;
+- [x] Every new operation joins the isolation suite: `{colleagueId}` resolves a colleague;
       teachers A, B and C with A↔B a thread: C naming A reads C's own (empty) thread, never A↔B;
       the Admin naming A reads the Admin's own; a student session under `/teacher` is refused by
       audience. `/clientId` and `/lastReadMessageId` are recorded as exemptions as in R7.
-- [ ] Posts, reads and uploads write no audit row.
+- [x] Posts, reads and uploads write no audit row.
+
+**As built** (Quizzivy/api#99, merged into `work/messaging-f2` at 0bfc4885): as above, with these
+choices:
+
+- **Reads at 60 a minute**, as this file says: `listColleagueThreads` and `getColleagueThread` are in
+  `PrincipalRateLimits()`, and Quizzivy/sdk#40 declares their 429. Colleague posts have their own
+  budget (30 a minute, 500 a day).
+- **The read pointer** reuses `command.MarkRead` with a colleague `ThreadRef`; there is no
+  `mark_read_colleague.go`. The first post, the read rule and the answers share helpers with R7's
+  direct posts (`command.post`, `repositories.pairTarget`, `http.answerPost`).
+- **The download decides by the thread's kind**: a direct thread admits its staff member, a
+  colleague thread its pair (`AttachmentThread.InPair`), a channel the class check, any other kind
+  nobody, and the student download refuses a colleague thread's file. Before, a colleague thread's
+  file reached the channel check with an empty class id and answered 500.
+- **The bell and the email.** The item's key is R7's `msg:<conversationId>`, which T-F2.5's
+  anonymisation removes; `notifications.Target` takes exactly one of `studentId` and `colleagueId`
+  for `messages`. `Mail.Message` checks a colleague pair, without which the email was closed as
+  `SKIPPED`, and the link is `/teacher/messages/colleagues/{colleagueId}`, the route T-F2.7 uses (a
+  student's thread stays `/teacher/messages/student/{id}`).
+- **The readers** of a colleague message are the enabled member of the pair who did not write it;
+  the workspace is not checked again. So a colleague who loses the workspace but is not disabled
+  still gets items, and their row and peer read `disabled: false` with `canPost: false`; the web's
+  composer follows `canPost` (T-F2.7).
 
 ### T-F2.5 — Export, anonymisation and deletes
 **Depends on:** T-F2.2
@@ -380,13 +468,22 @@ the Students and class-roster reads that carry `canMessage`
 `exports/repositories/tests/source_messages_test.go`
 **Size:** S
 **Done when:**
-- [ ] `messages_summary.csv` writes a colleague thread as kind `colleague` with its two
+- [x] `messages_summary.csv` writes a colleague thread as kind `colleague` with its two
       participant ids, the count and the dates; still no body, filename or attachment. The
       `README.txt` says so in vi and en.
-- [ ] D16's anonymisation deletes a disabled account's colleague threads with their messages,
+- [x] D16's anonymisation deletes a disabled account's colleague threads with their messages,
       reads and attachment rows, in the same transaction as its direct threads; their objects go
       in the housekeeping sweep as R7's do. A teacher who owns content is still skipped (R5), so
       in practice it removes the threads of a teacher with no content. A test covers it.
+
+**As built** (Quizzivy/api#98, merged into `work/messaging-f2` at c2c9864a): a colleague thread is
+a row of kind `colleague` whose pair, as stored (low first), is in two new columns,
+`colleague_a_id` and `colleague_b_id`, appended after `last_message_at`, so R7's eight columns keep
+their positions for a reader that takes the file by position; the other kinds leave both empty and
+a colleague row leaves `class_id`, `staff_id` and `student_id` empty. The README says, in vi and
+en, that the order does not tell who wrote first. `forgetThreads` matches either column of the
+pair and removes both members' `msg:<id>` bell items. No migration: `00180`'s grant and `00164`'s
+`DELETE` cover it, and both tests also run as `quizzivy_maintenance`.
 
 ## C. The web
 
@@ -407,6 +504,15 @@ the Students and class-roster reads that carry `canMessage`
       out of scope.
 - [ ] Vietnamese is written first, and the pull request lists every new key.
 
+**As built** (not yet merged: Quizzivy/web `feature/t-f2-06-any-student-picker` at 2d542e92, its
+pull request not yet open; to be finalised when it merges): New message ("Tin nhắn mới") before
+New announcement opens `RecipientPicker` in a `DialogShell`, its search the list's combobox (↑/↓,
+Enter, Esc), its rows `listMessageRecipients` a page at a time. The option row is lifted out of the
+share dialog's `PeoplePicker` into `components/shared/PersonOption.tsx`, which both pickers draw.
+Colleagues moved to T-F2.7, which owns their route. Two sentences the page does not draw, for a
+list empty without a search (`messages.picker.noStudents`, `messages.picker.noColleagues`), wait
+for the owner's eye.
+
 ### T-F2.7 — Staff: colleague threads
 **Depends on:** T-F2.0, T-F2.1
 **Touches (Quizzivy/web):** `web/src/features/messages/{api.ts,links.ts,stream.ts,useThread.ts}`,
@@ -425,16 +531,29 @@ the Students and class-roster reads that carry `canMessage`
 - [ ] Unit tests cover the merge order, the route, the disabled state and the bell target; R7's
       Messages tests pass unedited.
 
+**As built** (not yet merged: Quizzivy/web `feature/t-f2-07-colleague-threads` at e679c1d3, stacked
+on T-F2.6, its pull request not yet open; to be finalised when it merges): All merges the two lists
+in `features/messages/merge.ts` (`mergeByLatest`: each list keeps its order, equal times keep the
+staff row first); the picker gains "Học viên | Đồng nghiệp"; the composer follows `canPost`, so a
+colleague who left the workspace but is not disabled (T-F2.4) gets R7's sentence too; Details lists
+"Tệp đã chia sẻ" from the messages loaded, since the contract has no list of a thread's files; the
+page's lead and the "Tin nhắn mới" switch's hint name colleagues.
+
 ### T-F2.8 — The student's view
 **Depends on:** T-F2.0
 **Touches (Quizzivy/web):** `web/src/features/messages/pages/student/StudentMessagesPage.tsx`,
 `lib/i18n/locales/{vi,en}/student.json`
 **Size:** S
 **Done when:**
-- [ ] A direct row and a thread header with no `classNames` and not `former` read "Teacher at the
+- [x] A direct row and a thread header with no `classNames` and not `former` read "Teacher at the
       centre" ("Giáo viên của trung tâm"), where R7 wrote "Your teacher" alone; the rest is as at
       v0.15.0. No `/app/*` field is added.
-- [ ] A unit test pins the three sub-lines (classes, former, the centre).
+- [x] A unit test pins the three sub-lines (classes, former, the centre).
+
+**As built** (Quizzivy/web#176, merged into `work/messaging-f2` at b43f9689): `teacherLine()` returns
+`messages.student.centre`, which replaces `messages.student.teacher` (its only user), so no key is
+added and the reader grows by 2 B. R7's test that pinned "Giáo viên của bạn" for this case now pins
+the new line.
 
 ## D. Close-out
 
@@ -452,6 +571,16 @@ the Students and class-roster reads that carry `canMessage`
       the two teachers exchange a message with a PDF, and the receiver downloads it and sees the
       unread count clear.
 
+**As built** (the api half: Quizzivy/api#100, open, `seed/14-dev-colleagues.sql`; the web half not
+yet built; to be finalised): the second teacher is the existing Minh (`giaovien2@quizzivy.com`,
+the live suite's `TEACHER_2`), whose thread with Lan holds three messages, nothing unread on either
+side, and a PDF row written as the upload writes it, with the bytes and SHA-256 of a real one-page
+PDF. The seed cannot write to the object store, and neither can CI's `e2e-live` job, so in dev that
+row has no object: the live spec uploads its own PDF, and the seed's README gives the command that
+copies the bytes to the key on a dev stack. The student in no class is Hồ Ngọc Diệp
+(`diep.ho@quizzivy.com`), created by no one and tied to no one; the Admin's student in Lan's class
+is Bùi Ngọc Mai (`ngocmai.bui@quizzivy.com`, from `08`). `99-assert.sql` checks each.
+
 ### T-F2.10 — Documents
 **Depends on:** lands with T-F2.3 to T-F2.8, never after
 **Touches (Quizzivy/docs):** `docs/quizzivy-spec-v0.3.md` (§1's Messages line, §8 Messages, §9's
@@ -460,12 +589,20 @@ non-negotiable on a direct message's two participants), `docs/plan/20-data-model
 "As built" lines
 **Size:** S
 **Done when:**
-- [ ] The spec describes the staff rule, the picker, the centre's teacher on the student's side and
+- [x] The spec describes the staff rule, the picker, the centre's teacher on the student's side and
       colleague threads under "Changes pending (F2, v0.15.x)"; the release pull request numbers
       its version.
-- [ ] `AGENTS.md`'s rule reads "a direct message is readable by its two participants only, a staff
+- [x] `AGENTS.md`'s rule reads "a direct message is readable by its two participants only, a staff
       member and a student or two staff members".
-- [ ] `20-data-model.md` records the colleague columns, the checks and the Down's refusal as a D-row.
+- [x] `20-data-model.md` records the colleague columns, the checks and the Down's refusal as a D-row.
+
+**As built** (this pull request): the spec's changes are under "Changes pending (F2, v0.15.x)",
+above v0.122's heading, and in §1, §8 (the route row, Messages, and a paragraph for New message and
+Colleagues), §9's student route row, §13.3 and §13.5, and §15 (the listing, the summary, the
+notifications paragraph and Messages). T-F2.6 and T-F2.7 are marked as not yet merged there and
+here. The data model's section is §69 and its row D-86, the next free ones, with the migration
+inventory's row and §63 pointing at §69. `AGENTS.md`'s rule names both kinds of thread, and its
+append-only rule names colleague conversations among those anonymisation deletes.
 
 ### T-F2.11 — Release v0.15.x
 **Depends on:** every task above, and v0.15.0 released
